@@ -7,5 +7,6 @@ tmp*.txt
 build/
 install/
 log/
+*tmp.sdf
 
 __pycache__/
