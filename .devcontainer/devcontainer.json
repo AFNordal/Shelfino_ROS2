@@ -1,0 +1,55 @@
+{
+    // "image": "devcontainer:latest",
+    "build": {
+        "dockerfile": "devcontainer.dockerfile",
+        "args": {
+            "WORKSPACE_FOLDER_ARG": "${containerWorkspaceFolder}"
+        }
+    },
+    "name": "devcontainer",
+    "postCreateCommand": "sh .devcontainer/setup.sh",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                // "bradlc.vscode-tailwindcss",
+                // "donjayamanne.githistory",
+                // "github.copilot",
+                // "janisdd.vscode-edit-csv",
+                // "kevinrose.vsc-python-indent",
+                "robbowen.synthwave-vscode",
+                // "eamodio.gitlens",
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                // "ms-toolsai.jupyter",
+                "ms-python.black-formatter",
+                "ms-vscode.cpptools-extension-pack",
+                "ms-vscode.cmake-tools"
+                // "nvidia.nsight-vscode-edition",
+                // "svelte.svelte-vscode",
+                // "visualstudioexptteam.vscodeintellicode"
+                // "znck.grammarly"
+                // "james-yu.latex-workshop"
+                // "modular-mojotools.vscode-mojo",
+            ]
+        }
+    },
+    "runArgs": [
+        // "--gpus=all",
+        "--net=host",
+        "-it",
+        "--privileged"
+        // "--pid=host"
+        // "-eNVIDIA_DRIVER_CAPABILITIES=all"
+        // "--add-host=host.docker.internal:host-gateway"
+        // "--cap-add=SYS_PTRACE",
+        // "--security-opt",
+        // "seccomp=unconfined",
+        // "--device=/dev/ACM0"
+        // "${localEnv:DEVCONTAINER_RUN_ARGS}"
+    ],
+    "forwardPorts": [
+        // 12101,
+        // 12102,
+        // 12103
+    ]
+}
