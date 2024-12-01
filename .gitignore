@@ -10,3 +10,4 @@ log/
 *tmp.sdf
 
 __pycache__/
+*.pyc
