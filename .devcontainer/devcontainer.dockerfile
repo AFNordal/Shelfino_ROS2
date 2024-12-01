@@ -6,11 +6,13 @@ WORKDIR /root
 RUN apt clean
 RUN apt update 
 RUN apt upgrade -y
-RUN apt install -y git 
+RUN apt install -y git wget
+
+RUN apt install -y libcgal-dev libcgal-qt5-dev
 
 # # python
-ARG python=python3.11
-RUN apt update && apt install -y ${python} python3-pip 
+ARG python=python3.10
+RUN apt install -y ${python} python3-pip 
 RUN apt install -y python3-rosdep
 
 RUN rosdep init
@@ -23,6 +25,7 @@ RUN pip3 install --upgrade pip setuptools
 RUN pip3 install black
 RUN pip3 install numpy matplotlib tornado
 RUN pip3 install shapely
+RUN pip3 install thefuck
 
 ENV MPLBACKEND=WebAgg
 
@@ -39,3 +42,4 @@ RUN echo "export DISPLAY=host.docker.internal:0.0" >> /root/.bashrc
 RUN echo "export LIBGL_ALWAYS_SOFTWARE=1" >> /root/.bashrc
 
 RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
+RUN echo "eval \"$(thefuck --alias)\""  >> /root/.bashrc
