@@ -1,30 +1,30 @@
 #include "roadmap_gen.hpp"
 
 RoadmapGenerator::RoadmapGenerator()
-    // : Node("roadmap_gen")
+    : Node("roadmap_gen")
 {
     map = Map();
-    // rclcpp::QoS TL_qos(rclcpp::KeepLast(1));
-    // TL_qos.durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
-    // // rclcpp::QoS V_qos(rclcpp::KeepLast(1));
-    // // V_qos.durability(RMW_QOS_POLICY_DURABILITY_VOLATILE);
-    // borderSubscription = this->create_subscription<geometry_msgs::msg::PolygonStamped>(
-    //     "/borders", TL_qos, std::bind(&RoadmapGenerator::border_callback, this, _1));
-    // obstaclesSubscription = this->create_subscription<obstacles_msgs::msg::ObstacleArrayMsg>(
-    //     "/obstacles", TL_qos, std::bind(&RoadmapGenerator::obstacles_callback, this, _1));
-    // victimsSubscription = this->create_subscription<obstacles_msgs::msg::ObstacleArrayMsg>(
-    //     "/victims", TL_qos, std::bind(&RoadmapGenerator::victims_callback, this, _1));
-    // initPoseSubscription = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
-    //     "/shelfino/amcl_pose", TL_qos, std::bind(&RoadmapGenerator::initPose_callback, this, _1));
-    // shelfinoDescrSubscription = this->create_subscription<std_msgs::msg::String>(
-    //     "/shelfino/robot_description", TL_qos, std::bind(&RoadmapGenerator::shelfinoDescr_callback, this, _1));
-    // gateSubscription = this->create_subscription<geometry_msgs::msg::PoseArray>(
-    //     "/gates", TL_qos, std::bind(&RoadmapGenerator::gate_callback, this, _1));
+    rclcpp::QoS TL_qos(rclcpp::KeepLast(1));
+    TL_qos.durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
+    // rclcpp::QoS V_qos(rclcpp::KeepLast(1));
+    // V_qos.durability(RMW_QOS_POLICY_DURABILITY_VOLATILE);
+    borderSubscription = this->create_subscription<geometry_msgs::msg::PolygonStamped>(
+        "/borders", TL_qos, std::bind(&RoadmapGenerator::border_callback, this, _1));
+    obstaclesSubscription = this->create_subscription<obstacles_msgs::msg::ObstacleArrayMsg>(
+        "/obstacles", TL_qos, std::bind(&RoadmapGenerator::obstacles_callback, this, _1));
+    victimsSubscription = this->create_subscription<obstacles_msgs::msg::ObstacleArrayMsg>(
+        "/victims", TL_qos, std::bind(&RoadmapGenerator::victims_callback, this, _1));
+    initPoseSubscription = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+        "/shelfino/amcl_pose", TL_qos, std::bind(&RoadmapGenerator::initPose_callback, this, _1));
+    shelfinoDescrSubscription = this->create_subscription<std_msgs::msg::String>(
+        "/shelfino/robot_description", TL_qos, std::bind(&RoadmapGenerator::shelfinoDescr_callback, this, _1));
+    gateSubscription = this->create_subscription<geometry_msgs::msg::PoseArray>(
+        "/gates", TL_qos, std::bind(&RoadmapGenerator::gate_callback, this, _1));
 }
 
 void RoadmapGenerator::border_callback(const geometry_msgs::msg::PolygonStamped::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "Received border with %ld verteces", msg->polygon.points.size());
+    RCLCPP_INFO(this->get_logger(), "Received border with %ld verteces", msg->polygon.points.size());
     map.setBorder(msg->polygon);
     border_received = true;
     if (received_all())
@@ -35,7 +35,6 @@ void RoadmapGenerator::border_callback(const geometry_msgs::msg::PolygonStamped:
 
 void RoadmapGenerator::dummy_border()
 {
-    // RCLCPP_INFO(this->get_logger(), "Dummy border");
     printf("Dummy border\n");
     geometry_msgs::msg::Polygon polygon;
 
@@ -76,7 +75,7 @@ void RoadmapGenerator::dummy_border()
 
 void RoadmapGenerator::obstacles_callback(const obstacles_msgs::msg::ObstacleArrayMsg::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "Received %ld obstacles", msg->obstacles.size());
+    RCLCPP_INFO(this->get_logger(), "Received %ld obstacles", msg->obstacles.size());
     std::vector<Obstacle> obstacles;
     for (auto o : msg->obstacles)
     {
@@ -91,7 +90,6 @@ void RoadmapGenerator::obstacles_callback(const obstacles_msgs::msg::ObstacleArr
 }
 
 void RoadmapGenerator::dummy_obstacles() {
-    // RCLCPP_INFO(this->get_logger(), "Dummy obstacles");
     printf("Dummy obst\n");
     std::vector<Obstacle> obstacles;
     obstacles_msgs::msg::ObstacleMsg o{};
@@ -115,7 +113,7 @@ void RoadmapGenerator::dummy_obstacles() {
 
 void RoadmapGenerator::victims_callback(const obstacles_msgs::msg::ObstacleArrayMsg::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "Received %ld victims", msg->obstacles.size());
+    RCLCPP_INFO(this->get_logger(), "Received %ld victims", msg->obstacles.size());
     std::vector<Weighted_point_2> victims;
     for (auto o : msg->obstacles)
     {
@@ -131,7 +129,6 @@ void RoadmapGenerator::victims_callback(const obstacles_msgs::msg::ObstacleArray
 }
 
 void RoadmapGenerator::dummy_victims() {
-    // RCLCPP_INFO(this->get_logger(), "Dummy victims");
     printf("Dummy victims\n");
     std::vector<Weighted_point_2> victims;
     victims.emplace_back(Point_2(50, 10), 550);
@@ -145,7 +142,7 @@ void RoadmapGenerator::dummy_victims() {
 
 void RoadmapGenerator::initPose_callback(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "Received initial shelfino pose");
+    RCLCPP_INFO(this->get_logger(), "Received initial shelfino pose");
     auto orientation = msg->pose.pose.orientation;
     auto pos = msg->pose.pose.position;
     Direction_2 dir = orientation2dir(orientation);
@@ -161,7 +158,6 @@ void RoadmapGenerator::initPose_callback(geometry_msgs::msg::PoseWithCovarianceS
 
 void RoadmapGenerator::dummy_initPose()
 {
-    // RCLCPP_INFO(this->get_logger(), "Dummy shelfino pose");
     printf("Dummy initpose\n");
     geometry_msgs::msg::Pose::_orientation_type orientation;
     orientation.x = 0.0;
@@ -182,10 +178,9 @@ void RoadmapGenerator::dummy_initPose()
 
 void RoadmapGenerator::shelfinoDescr_callback(std_msgs::msg::String::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "Received shelfino description");
-
+    RCLCPP_INFO(this->get_logger(), "Received shelfino description");
     double rad = parseShelfinoRadius(msg->data);
-    // RCLCPP_INFO(this->get_logger(), "Received shelfino description2");
+    RCLCPP_INFO(this->get_logger(), "Parsed shelfino description");
     map.setShelfinoRadius(rad);
     shelfinoDescr_received = true;
     if (received_all())
@@ -196,7 +191,6 @@ void RoadmapGenerator::shelfinoDescr_callback(std_msgs::msg::String::SharedPtr m
 
 void RoadmapGenerator::dummy_shelfinoDescr()
 {
-    // RCLCPP_INFO(this->get_logger(), "Dummy shelfino description");
     printf("Dummy descr\n");
 
     map.setShelfinoRadius(1);
@@ -209,16 +203,16 @@ void RoadmapGenerator::dummy_shelfinoDescr()
 
 void RoadmapGenerator::gate_callback(geometry_msgs::msg::PoseArray::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "Received %ld gate(s)", msg->poses.size());
+    RCLCPP_INFO(this->get_logger(), "Received %ld gate(s)", msg->poses.size());
     auto orientation = msg->poses.at(0).orientation;
     auto pos = msg->poses.at(0).position;
     Direction_2 dir = orientation2dir(orientation);
     Ray_2 CGALPose = Ray_2(Point_2(pos.x, pos.y), dir);
     map.setGatePose(CGALPose);
 
-    initPose_received = true; // WORKAROUND
-    Ray_2 dummyShelfino{Point_2{0, 0}, Direction_2{1, 0}};
-    map.setShelfinoInitPose(dummyShelfino);
+    // initPose_received = true; // WORKAROUND
+    // Ray_2 dummyShelfino{Point_2{0, 0}, Direction_2{1, 0}};
+    // map.setShelfinoInitPose(dummyShelfino);
 
 
     gate_received = true;
@@ -230,7 +224,6 @@ void RoadmapGenerator::gate_callback(geometry_msgs::msg::PoseArray::SharedPtr ms
 
 void RoadmapGenerator::dummy_gate()
 {
-    // RCLCPP_INFO(this->get_logger(), "Dummy gate(s)");
     printf("Dummy gate\n");
     geometry_msgs::msg::Pose::_orientation_type orientation;
     orientation.x = 0.0;
@@ -251,7 +244,7 @@ void RoadmapGenerator::dummy_gate()
 
 void RoadmapGenerator::on_map_complete()
 {
-    // RCLCPP_INFO(this->get_logger(), "Received all map ingredients");
+    RCLCPP_INFO(this->get_logger(), "Received all map ingredients");
     Bbox_2 bbox = map.getBbox();
     const size_t N = 5000;
     double *samples = hammersley_sequence(0, N - 1, 2, N);
@@ -282,15 +275,16 @@ void RoadmapGenerator::on_map_complete()
 
 int main(int argc, char *argv[])
 {
-    // rclcpp::init(argc, argv);
-    RoadmapGenerator rmg{};
-    rmg.dummy_border();
-    rmg.dummy_obstacles();
-    rmg.dummy_victims();
-    rmg.dummy_initPose();
-    rmg.dummy_shelfinoDescr();
-    rmg.dummy_gate();
-    // rclcpp::spin(std::make_shared<RoadmapGenerator>());
-    // rclcpp::shutdown();
+    // RoadmapGenerator rmg{};
+    // rmg.dummy_border();
+    // rmg.dummy_obstacles();
+    // rmg.dummy_victims();
+    // rmg.dummy_initPose();
+    // rmg.dummy_shelfinoDescr();
+    // rmg.dummy_gate();
+
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<RoadmapGenerator>());
+    rclcpp::shutdown();
     return 0;
 }

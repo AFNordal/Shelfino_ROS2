@@ -19,10 +19,9 @@
 
 typedef CGAL::Point_set_2<K> Point_set_2;
 
-namespace plt = matplotlibcpp;
 using std::placeholders::_1;
 
-class RoadmapGenerator //: public rclcpp::Node
+class RoadmapGenerator : public rclcpp::Node
 {
 public:
     RoadmapGenerator();

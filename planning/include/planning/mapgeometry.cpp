@@ -85,9 +85,7 @@ void draw_poly(const Polygon_2 &p, std::string color, bool fill)
     }
     else
     {
-        plt::plot({1, 2, 3, 4});
-        // plt::plot(x, y, {{"color", color}});
-        plt::show();
+        plt::plot(x, y, {{"color", color}});
     }
 }
 
