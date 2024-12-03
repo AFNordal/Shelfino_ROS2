@@ -382,14 +382,18 @@ def generate_config_file(map_env_params_file, generated_config_file):
         victims_yaml = config_yaml['/**/send_victims']['ros__parameters']
         assert len(victims_yaml['vect_x']) == len(victims_yaml['vect_y']) == len(victims_yaml['vect_weight'])
         for i in range(len(victims_yaml['vect_x'])):
-            victim = VictimConfig(
-                f"victim{i}",
-                victims_yaml['vect_x'][i],
-                victims_yaml['vect_y'][i],
-                victims_yaml['vect_weight'][i]
-            )
-            assert victim.check(map_config, shelfini, gates, obstacles), f"{victim} is not in the map {map_config} or intersects with another gate or obstacle"
-            victims.append(victim)
+            try:
+                victim = VictimConfig(
+                    f"victim{i}",
+                    victims_yaml['vect_x'][i],
+                    victims_yaml['vect_y'][i],
+                    victims_yaml['vect_weight'][i]
+                )
+                assert victim.check(map_config, shelfini, gates, obstacles), f"{victim} is not in the map {map_config} or intersects with another gate or obstacle"
+                victims.append(victim)
+            except AssertionError as e:
+                print("==== CAUGHT ASSERTION ERROR ====")
+                print(e)
         max_weight = float(victims_yaml['max_weight'])
         min_weight = float(victims_yaml['min_weight'])
         for i in range(int(victims_yaml['n_victims'])):

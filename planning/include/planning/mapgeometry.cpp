@@ -1,5 +1,7 @@
 #include "mapgeometry.hpp"
 
+void plt_show() { plt::show(); }
+
 Direction_2 orientation2dir(geometry_msgs::msg::Quaternion &orientation)
 {
     double qx = orientation.x;
@@ -30,6 +32,7 @@ bool Obstacle::contains(const Point_2 &p)
 void Map::display()
 {
     draw_poly(border, "k");
+    printf("got here");
     for (auto o : obstacles)
     {
         draw_poly(o.getPoly(), "m", true);
@@ -66,6 +69,11 @@ void draw_poly(const Polygon_2 &p, std::string color, bool fill)
 {
     size_t N = p.size();
     std::vector<double> x(N + 1), y(N + 1);
+    if (p.size() == 0)
+    {
+        std::cerr << "Error: Polygon is empty." << std::endl;
+        return;
+    }
     for (size_t i = 0; i < N + 1; i++)
     {
         x.at(i) = p[i % N].x();
@@ -77,7 +85,9 @@ void draw_poly(const Polygon_2 &p, std::string color, bool fill)
     }
     else
     {
-        plt::plot(x, y, {{"color", color}});
+        plt::plot({1, 2, 3, 4});
+        // plt::plot(x, y, {{"color", color}});
+        plt::show();
     }
 }
 

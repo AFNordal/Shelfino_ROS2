@@ -22,13 +22,21 @@ typedef CGAL::Point_set_2<K> Point_set_2;
 namespace plt = matplotlibcpp;
 using std::placeholders::_1;
 
-class RoadmapGenerator : public rclcpp::Node
+class RoadmapGenerator //: public rclcpp::Node
 {
 public:
     RoadmapGenerator();
+    
+    void dummy_border();
+    void dummy_obstacles();
+    void dummy_victims();
+    void dummy_initPose();
+    void dummy_shelfinoDescr();
+    void dummy_gate();
 
 private:
     void on_map_complete();
+
 
     void border_callback(const geometry_msgs::msg::PolygonStamped::SharedPtr msg);
     void obstacles_callback(obstacles_msgs::msg::ObstacleArrayMsg::SharedPtr msg);

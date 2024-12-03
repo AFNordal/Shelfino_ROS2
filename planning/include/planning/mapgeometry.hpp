@@ -31,6 +31,8 @@ void draw_circle(const Point_2 &center, const double r, std::string color,  bool
 void draw_poly(const Polygon_2 &p, std::string color,  bool fill=false);
 bool point_in_bbox(const Point_2& p, const Bbox_2& box);
 
+void plt_show();
+
 typedef enum
 {
     CIRCLE,

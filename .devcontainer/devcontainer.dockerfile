@@ -10,6 +10,8 @@ RUN apt install -y git wget
 
 RUN apt install -y libcgal-dev libcgal-qt5-dev
 
+# RUN apt upgrade -y ros-humble-*
+
 # # python
 ARG python=python3.10
 RUN apt install -y ${python} python3-pip 
