@@ -9,15 +9,15 @@
 #include "obstacles_msgs/msg/obstacle_array_msg.hpp"
 #include "obstacles_msgs/msg/obstacle_msg.hpp"
 
-#include <CGAL/Point_set_2.h>
-
 #include "planning/mapgeometry.hpp"
 #include "planning/utils.hpp"
 #include "planning/graphs.hpp"
 
 #include "hammersley/hammersley.hpp"
 
-typedef CGAL::Point_set_2<K> Point_set_2;
+#include <mutex>
+#define KNN_K 4
+
 
 using std::placeholders::_1;
 
@@ -36,6 +36,8 @@ public:
 private:
     void on_map_complete();
 
+    std::mutex mtx;
+    bool mapping_started = false;
 
     void border_callback(const geometry_msgs::msg::PolygonStamped::SharedPtr msg);
     void obstacles_callback(obstacles_msgs::msg::ObstacleArrayMsg::SharedPtr msg);

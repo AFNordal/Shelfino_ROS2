@@ -15,7 +15,7 @@ find_package(std_msgs REQUIRED)
 find_package(urdf REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(obstacles_msgs REQUIRED)
-find_package(CGAL REQUIRED COMPONENTS Qt5)
+find_package(CGAL REQUIRED)
 
 add_executable(roadmap_gen 
     src/roadmap_gen.cpp 
@@ -28,8 +28,7 @@ target_include_directories(roadmap_gen PUBLIC
   $<INSTALL_INTERFACE:include>
   /usr/include/python3.10)
 target_link_libraries(roadmap_gen 
-  CGAL::CGAL 
-  CGAL::CGAL_Basic_viewer)
+  CGAL::CGAL)
 target_compile_features(roadmap_gen PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
 install(TARGETS 

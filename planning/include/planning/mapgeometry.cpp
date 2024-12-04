@@ -2,6 +2,11 @@
 
 void plt_show() { plt::show(); }
 
+void draw_segment(const Segment_2 &s, std::string color, double linewidth)
+{
+    plt::plot({s[0].x(), s[1].x()}, {s[0].y(), s[1].y()}, {{"color", color}, {"linewidth", std::to_string(linewidth)}});
+}
+
 Direction_2 orientation2dir(geometry_msgs::msg::Quaternion &orientation)
 {
     double qx = orientation.x;
@@ -32,7 +37,6 @@ bool Obstacle::contains(const Point_2 &p)
 void Map::display()
 {
     draw_poly(border, "k");
-    printf("got here");
     for (auto o : obstacles)
     {
         draw_poly(o.getPoly(), "m", true);
@@ -111,6 +115,7 @@ Obstacle::Obstacle(obstacles_msgs::msg::ObstacleMsg &o)
         t = CIRCLE;
         auto center = o.polygon.points.at(0); // ASSUMPTION
         circle = Circle_2(Point_2(center.x, center.y), std::pow(o.radius, 2));
+        radius = o.radius;
     }
 }
 
@@ -147,4 +152,69 @@ bool Map::isFree(const Point_2 &p)
             return false;
     }
     return true;
+}
+
+bool segment_polygon_intersection(const Segment_2 &s, const Polygon_2 &p)
+{
+    auto it = p.edges_begin();
+    while (it != p.edges_end())
+    {
+        if (CGAL::do_intersect(*it, s))
+            return true;
+        it++;
+    }
+    return false;
+}
+
+bool Obstacle::segmentCollides(const Segment_2 &s)
+{
+    if (t == CIRCLE)
+    {
+        return CGAL::do_intersect(circle, s);
+    }
+    else
+    {
+        return segment_polygon_intersection(s, polygon);
+    }
+}
+
+bool Map::isFree(const Segment_2 &s)
+{
+    if (segment_polygon_intersection(s, border))
+        return false;
+
+    for (auto &obst : obstacles)
+    {
+        if (obst.segmentCollides(s))
+            return false;
+    }
+    return true;
+}
+
+bool Map::isPOI(const Point_2 &p)
+{
+    for (auto v : victims)
+    {
+        if (v.point() == p)
+            return true;
+    }
+    if (shelfino.source() == p || gate.source() == p)
+        return true;
+}
+
+void Obstacle::offset(double r) {
+    if (t == CIRCLE) {
+        circle = Circle_2(circle.center(), std::pow(radius+r, 2));
+    } else {
+        auto polyVec = CGAL::create_exterior_skeleton_and_offset_polygons_2(r, polygon);
+        polygon = *polyVec.at(0);
+    }
+}
+
+void Map::offsetAllPolys() {
+    for (size_t i=0; i<obstacles.size(); i++) {
+        obstacles[i].offset(shelfino_r);
+    }
+    auto polyVec = CGAL::create_interior_skeleton_and_offset_polygons_2(shelfino_r, border);
+    border = *polyVec.at(0);
 }

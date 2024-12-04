@@ -24,12 +24,19 @@ RoadmapGenerator::RoadmapGenerator()
 
 void RoadmapGenerator::border_callback(const geometry_msgs::msg::PolygonStamped::SharedPtr msg)
 {
+    // mtx.lock();
     RCLCPP_INFO(this->get_logger(), "Received border with %ld verteces", msg->polygon.points.size());
     map.setBorder(msg->polygon);
     border_received = true;
-    if (received_all())
+    if (received_all() && (!mapping_started))
     {
+        mapping_started = true;
+        // mtx.unlock();
         on_map_complete();
+    }
+    else
+    {
+        // mtx.unlock();
     }
 }
 
@@ -75,6 +82,7 @@ void RoadmapGenerator::dummy_border()
 
 void RoadmapGenerator::obstacles_callback(const obstacles_msgs::msg::ObstacleArrayMsg::SharedPtr msg)
 {
+    // mtx.lock();
     RCLCPP_INFO(this->get_logger(), "Received %ld obstacles", msg->obstacles.size());
     std::vector<Obstacle> obstacles;
     for (auto o : msg->obstacles)
@@ -83,13 +91,20 @@ void RoadmapGenerator::obstacles_callback(const obstacles_msgs::msg::ObstacleArr
     }
     map.setObstacles(obstacles);
     obstacles_received = true;
-    if (received_all())
+    if (received_all() && (!mapping_started))
     {
+        mapping_started = true;
+        // mtx.unlock();
         on_map_complete();
+    }
+    else
+    {
+        // mtx.unlock();
     }
 }
 
-void RoadmapGenerator::dummy_obstacles() {
+void RoadmapGenerator::dummy_obstacles()
+{
     printf("Dummy obst\n");
     std::vector<Obstacle> obstacles;
     obstacles_msgs::msg::ObstacleMsg o{};
@@ -113,6 +128,7 @@ void RoadmapGenerator::dummy_obstacles() {
 
 void RoadmapGenerator::victims_callback(const obstacles_msgs::msg::ObstacleArrayMsg::SharedPtr msg)
 {
+    // mtx.lock();
     RCLCPP_INFO(this->get_logger(), "Received %ld victims", msg->obstacles.size());
     std::vector<Weighted_point_2> victims;
     for (auto o : msg->obstacles)
@@ -122,13 +138,20 @@ void RoadmapGenerator::victims_callback(const obstacles_msgs::msg::ObstacleArray
     }
     map.setVictims(victims);
     victims_received = true;
-    if (received_all())
+    if (received_all() && (!mapping_started))
     {
+        mapping_started = true;
+        // mtx.unlock();
         on_map_complete();
+    }
+    else
+    {
+        // mtx.unlock();
     }
 }
 
-void RoadmapGenerator::dummy_victims() {
+void RoadmapGenerator::dummy_victims()
+{
     printf("Dummy victims\n");
     std::vector<Weighted_point_2> victims;
     victims.emplace_back(Point_2(50, 10), 550);
@@ -142,6 +165,7 @@ void RoadmapGenerator::dummy_victims() {
 
 void RoadmapGenerator::initPose_callback(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
+    // mtx.lock();
     RCLCPP_INFO(this->get_logger(), "Received initial shelfino pose");
     auto orientation = msg->pose.pose.orientation;
     auto pos = msg->pose.pose.position;
@@ -150,9 +174,15 @@ void RoadmapGenerator::initPose_callback(geometry_msgs::msg::PoseWithCovarianceS
     map.setShelfinoInitPose(CGALPose);
 
     initPose_received = true;
-    if (received_all())
+    if (received_all() && (!mapping_started))
     {
+        mapping_started = true;
+        // mtx.unlock();
         on_map_complete();
+    }
+    else
+    {
+        // mtx.unlock();
     }
 }
 
@@ -164,7 +194,7 @@ void RoadmapGenerator::dummy_initPose()
     orientation.y = 0.0;
     orientation.z = 0.0;
     orientation.w = 1.0;
-    
+
     Direction_2 dir = orientation2dir(orientation);
     Ray_2 CGALPose = Ray_2(Point_2(20, 80), dir);
     map.setShelfinoInitPose(CGALPose);
@@ -178,14 +208,21 @@ void RoadmapGenerator::dummy_initPose()
 
 void RoadmapGenerator::shelfinoDescr_callback(std_msgs::msg::String::SharedPtr msg)
 {
+    // mtx.lock();
     RCLCPP_INFO(this->get_logger(), "Received shelfino description");
     double rad = parseShelfinoRadius(msg->data);
     RCLCPP_INFO(this->get_logger(), "Parsed shelfino description");
     map.setShelfinoRadius(rad);
     shelfinoDescr_received = true;
-    if (received_all())
+    if (received_all() && (!mapping_started))
     {
+        mapping_started = true;
+        // mtx.unlock();
         on_map_complete();
+    }
+    else
+    {
+        // mtx.unlock();
     }
 }
 
@@ -203,6 +240,7 @@ void RoadmapGenerator::dummy_shelfinoDescr()
 
 void RoadmapGenerator::gate_callback(geometry_msgs::msg::PoseArray::SharedPtr msg)
 {
+    // mtx.lock();
     RCLCPP_INFO(this->get_logger(), "Received %ld gate(s)", msg->poses.size());
     auto orientation = msg->poses.at(0).orientation;
     auto pos = msg->poses.at(0).position;
@@ -210,15 +248,20 @@ void RoadmapGenerator::gate_callback(geometry_msgs::msg::PoseArray::SharedPtr ms
     Ray_2 CGALPose = Ray_2(Point_2(pos.x, pos.y), dir);
     map.setGatePose(CGALPose);
 
-    // initPose_received = true; // WORKAROUND
-    // Ray_2 dummyShelfino{Point_2{0, 0}, Direction_2{1, 0}};
-    // map.setShelfinoInitPose(dummyShelfino);
-
+    initPose_received = true; // WORKAROUND
+    Ray_2 dummyShelfino{Point_2{0, 0}, Direction_2{1, 0}};
+    map.setShelfinoInitPose(dummyShelfino);
 
     gate_received = true;
-    if (received_all())
+    if (received_all() && (!mapping_started))
     {
+        mapping_started = true;
+        // mtx.unlock();
         on_map_complete();
+    }
+    else
+    {
+        // mtx.unlock();
     }
 }
 
@@ -230,7 +273,7 @@ void RoadmapGenerator::dummy_gate()
     orientation.y = 0.0;
     orientation.z = 0.0;
     orientation.w = 1.0;
-    
+
     Direction_2 dir = orientation2dir(orientation);
     Ray_2 CGALPose = Ray_2(Point_2(60, 30), dir);
     map.setGatePose(CGALPose);
@@ -244,32 +287,85 @@ void RoadmapGenerator::dummy_gate()
 
 void RoadmapGenerator::on_map_complete()
 {
-    RCLCPP_INFO(this->get_logger(), "Received all map ingredients");
+    printf("Received all map ingredients\n");
     Bbox_2 bbox = map.getBbox();
     const size_t N = 5000;
     double *samples = hammersley_sequence(0, N - 1, 2, N);
-    // std::vector<Point_2> inside;
+    printf("Got samples\n");
+
+    map.offsetAllPolys();
+
+
     Graph G;
+    std::vector<shared_ptr<Vertex>> POIs;
+    std::shared_ptr<Vertex> gateVertex = std::make_shared<Vertex>(map.getGate().source());
+    G.addVertex(gateVertex);
+    POIs.push_back(gateVertex);
+    std::shared_ptr<Vertex> shelfinoVertex = std::make_shared<Vertex>(map.getShelfino().source());
+    G.addVertex(shelfinoVertex);
+    POIs.push_back(shelfinoVertex);
+    for (auto v : map.getVictims())
+    {
+        std::shared_ptr<Vertex> victimVertex = std::make_shared<Vertex>(v.point());
+        G.addVertex(victimVertex);
+        POIs.push_back(victimVertex);
+    }
     for (size_t i = 0; i < N; i++)
     {
         Vertex q{
             samples[i * 2] * bbox.x_span() + bbox.xmin(),
             samples[i * 2 + 1] * bbox.y_span() + bbox.ymin()};
-        if (map.isFree(q))
+        if (map.isFree(q) && !map.isPOI(q))
             G.addVertex(std::make_shared<Vertex>(q));
-        
-        // inside.push_back(q);
     }
-    //  For each q in G.V
-    //      For each n in q.KNN
-    //          if not path(q, n) collides
-    //              q.addNeighbour(n)
-    //              n.addNeighbour(q)
+    printf("inserted verteces\n");
 
-    
     map.display();
-    // auto coord_pair_in = points2coords(inside);
-    // plt::scatter(coord_pair_in.first, coord_pair_in.second, 1, {{"color", "g"}});
+
+    for (auto &q : *G.getVerteces())
+    {
+        auto knn = G.KNN(q, KNN_K);
+        for (auto &n : *knn)
+        {
+            if (q == n) // don't connect to itself
+                continue;
+            bool already_connected = false;
+            for (auto n_n : *(n->getNeighbours()))
+            {
+                if (n_n.first == q)
+                { // don't connect if already connected
+                    already_connected = true;
+                    break;
+                }
+            }
+            if (already_connected)
+                continue;
+            Segment_2 seg{*q, *n};
+            if (map.isFree(seg))
+            {
+                G.connect(q, n, std::make_shared<SegmentEdge>(seg));
+            }
+        }
+    }
+    printf("inserted edges\n");
+    for (size_t i=0; i<POIs.size(); i++) {
+        for (size_t j=i+1; j<POIs.size(); j++) {
+
+            std::vector<std::shared_ptr<Vertex>> shortestPath = G.dijkstra(POIs.at(i), POIs.at(j));
+            for (size_t k = 0; k < shortestPath.size()-1; k++) {
+                auto p1 = shortestPath.at(k);
+                auto p2 = shortestPath.at(k+1);
+                draw_segment(Segment_2(*p1, *p2), "m");
+            }
+
+        } 
+    }
+    for (auto e : *G.getEdges())
+    {
+        draw_segment(e->getSegment(), "k", 0.5);
+    }
+
+    delete[] samples;
     plt_show();
 }
 
