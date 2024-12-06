@@ -17,6 +17,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(obstacles_msgs REQUIRED)
 find_package(CGAL REQUIRED COMPONENTS Qt5)
 
+
 add_executable(roadmap_gen 
     src/roadmap_gen.cpp 
     include/planning/mapgeometry.cpp
@@ -35,6 +36,7 @@ target_compile_features(roadmap_gen PUBLIC c_std_99 cxx_std_17)  # Require C99 a
 install(TARGETS 
   roadmap_gen
   DESTINATION lib/${PROJECT_NAME})
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

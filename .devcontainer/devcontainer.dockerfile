@@ -30,12 +30,12 @@ RUN pip3 install thefuck
 ENV MPLBACKEND=WebAgg
 
 # gitconfig
-COPY ssh-keys /root/.ssh
+#COPY ssh-keys /root/.ssh
 
 RUN git config --global core.fileMode false
 RUN git config --global --add safe.directory "*"
-RUN git config --global user.email "nordalrasmus01@gmail.com"
-RUN git config --global user.name "Rasmus Anker Fossen Nordal"
+RUN git config --global user.email "vibekekd@stud.ntnu.no"
+RUN git config --global user.name "VibekeKD"
 
 # remote display
 RUN echo "export DISPLAY=host.docker.internal:0.0" >> /root/.bashrc
