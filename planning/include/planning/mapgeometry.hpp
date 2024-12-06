@@ -12,6 +12,7 @@
 #include "geometry_msgs/msg/quaternion.hpp"
 #include "geometry_msgs/msg/pose.hpp"
 
+
 // typedef CGAL::Simple_cartesian<double> K;
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef K::Point_2 Point_2;
@@ -25,6 +26,19 @@ typedef CGAL::Bbox_2 Bbox_2;
 
 namespace plt = matplotlibcpp;
 
+constexpr std::array<const char*, 10> matplotlib_color_range = {
+    "#1f77b4", // Blue
+    "#ff7f0e", // Orange
+    "#2ca02c", // Green
+    "#d62728", // Red
+    "#9467bd", // Purple
+    "#8c564b", // Brown
+    "#e377c2", // Pink
+    "#7f7f7f", // Gray
+    "#bcbd22", // Lime
+    "#17becf"  // Cyan
+};
+
 Polygon_2 polygonROS2CGAL(geometry_msgs::msg::Polygon &msg);
 Direction_2 orientation2dir(geometry_msgs::msg::Quaternion &orientation);
 Polygon_2 circle2poly(Circle_2 &c, int n);
@@ -33,6 +47,8 @@ void draw_poly(const Polygon_2 &p, std::string color, bool fill = false);
 bool point_in_bbox(const Point_2 &p, const Bbox_2 &box);
 bool segment_polygon_intersection(const Segment_2 &s, const Polygon_2 &p);
 void draw_segment(const Segment_2 &s, std::string color, double linewidth = 1);
+void draw_polyline(const std::vector<Point_2> &points, std::string color, double linewidth = 1);
+
 
 void plt_show();
 
@@ -85,7 +101,8 @@ public:
     Ray_2 getShelfino() { return shelfino; }
     Ray_2 getGate() { return gate; }
     std::vector<Weighted_point_2> getVictims() { return victims; }
-    std::vector<Point_2> getPOIs() {
+    std::vector<Point_2> getPOIs()
+    {
         std::vector<Point_2> vec;
         vec.push_back(shelfino.source());
         for (auto v : victims)

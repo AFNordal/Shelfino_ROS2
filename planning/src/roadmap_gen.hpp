@@ -12,12 +12,14 @@
 #include "planning/mapgeometry.hpp"
 #include "planning/utils.hpp"
 #include "planning/graphs.hpp"
+#include "planning/dubins.hpp"
 
 #include "hammersley/hammersley.hpp"
 
-#include <mutex>
+#define N_SAMPLES 1000
 #define KNN_K 4
-
+#define SHELFINO_TURNING_R 0.5
+#define SHELFINO_VEL 0.8
 
 using std::placeholders::_1;
 
@@ -25,7 +27,7 @@ class RoadmapGenerator : public rclcpp::Node
 {
 public:
     RoadmapGenerator();
-    
+
     void dummy_border();
     void dummy_obstacles();
     void dummy_victims();
@@ -36,7 +38,6 @@ public:
 private:
     void on_map_complete();
 
-    std::mutex mtx;
     bool mapping_started = false;
 
     void border_callback(const geometry_msgs::msg::PolygonStamped::SharedPtr msg);
@@ -55,12 +56,20 @@ private:
 
     bool border_received, obstacles_received, victims_received, initPose_received, shelfinoDescr_received, gate_received = false;
 
+    void smooth_PRM_paths();
+    void generate_PRM(Graph &G);
+    void smooth_bisect(const std::vector<std::shared_ptr<Vertex>> &path,
+                       std::list<std::shared_ptr<Vertex>> &smooth,
+                       size_t idx0,
+                       size_t idx1,
+                       const std::list<std::shared_ptr<Vertex>>::iterator &smooth_inserter);
+
     Map map;
     bool received_all()
     {
-        return border_received && 
-               obstacles_received && 
-               victims_received && 
+        return border_received &&
+               obstacles_received &&
+               victims_received &&
                initPose_received &&
                shelfinoDescr_received &&
                gate_received;

@@ -7,6 +7,16 @@ void draw_segment(const Segment_2 &s, std::string color, double linewidth)
     plt::plot({s[0].x(), s[1].x()}, {s[0].y(), s[1].y()}, {{"color", color}, {"linewidth", std::to_string(linewidth)}});
 }
 
+void draw_polyline(const std::vector<Point_2> &points, std::string color, double linewidth)
+{
+    std::vector<double> xs, ys;
+    for (auto &p: points) {
+        xs.push_back(p.x());
+        ys.push_back(p.y());
+    }
+    plt::plot(xs, ys, {{"color", color}, {"linewidth", std::to_string(linewidth)}});
+}
+
 Direction_2 orientation2dir(geometry_msgs::msg::Quaternion &orientation)
 {
     double qx = orientation.x;

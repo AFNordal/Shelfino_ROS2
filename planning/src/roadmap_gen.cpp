@@ -24,19 +24,13 @@ RoadmapGenerator::RoadmapGenerator()
 
 void RoadmapGenerator::border_callback(const geometry_msgs::msg::PolygonStamped::SharedPtr msg)
 {
-    // mtx.lock();
     RCLCPP_INFO(this->get_logger(), "Received border with %ld verteces", msg->polygon.points.size());
     map.setBorder(msg->polygon);
     border_received = true;
     if (received_all() && (!mapping_started))
     {
         mapping_started = true;
-        // mtx.unlock();
         on_map_complete();
-    }
-    else
-    {
-        // mtx.unlock();
     }
 }
 
@@ -82,7 +76,6 @@ void RoadmapGenerator::dummy_border()
 
 void RoadmapGenerator::obstacles_callback(const obstacles_msgs::msg::ObstacleArrayMsg::SharedPtr msg)
 {
-    // mtx.lock();
     RCLCPP_INFO(this->get_logger(), "Received %ld obstacles", msg->obstacles.size());
     std::vector<Obstacle> obstacles;
     for (auto o : msg->obstacles)
@@ -94,12 +87,7 @@ void RoadmapGenerator::obstacles_callback(const obstacles_msgs::msg::ObstacleArr
     if (received_all() && (!mapping_started))
     {
         mapping_started = true;
-        // mtx.unlock();
         on_map_complete();
-    }
-    else
-    {
-        // mtx.unlock();
     }
 }
 
@@ -128,7 +116,6 @@ void RoadmapGenerator::dummy_obstacles()
 
 void RoadmapGenerator::victims_callback(const obstacles_msgs::msg::ObstacleArrayMsg::SharedPtr msg)
 {
-    // mtx.lock();
     RCLCPP_INFO(this->get_logger(), "Received %ld victims", msg->obstacles.size());
     std::vector<Weighted_point_2> victims;
     for (auto o : msg->obstacles)
@@ -141,12 +128,7 @@ void RoadmapGenerator::victims_callback(const obstacles_msgs::msg::ObstacleArray
     if (received_all() && (!mapping_started))
     {
         mapping_started = true;
-        // mtx.unlock();
         on_map_complete();
-    }
-    else
-    {
-        // mtx.unlock();
     }
 }
 
@@ -165,7 +147,6 @@ void RoadmapGenerator::dummy_victims()
 
 void RoadmapGenerator::initPose_callback(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
-    // mtx.lock();
     RCLCPP_INFO(this->get_logger(), "Received initial shelfino pose");
     auto orientation = msg->pose.pose.orientation;
     auto pos = msg->pose.pose.position;
@@ -177,12 +158,7 @@ void RoadmapGenerator::initPose_callback(geometry_msgs::msg::PoseWithCovarianceS
     if (received_all() && (!mapping_started))
     {
         mapping_started = true;
-        // mtx.unlock();
         on_map_complete();
-    }
-    else
-    {
-        // mtx.unlock();
     }
 }
 
@@ -208,7 +184,6 @@ void RoadmapGenerator::dummy_initPose()
 
 void RoadmapGenerator::shelfinoDescr_callback(std_msgs::msg::String::SharedPtr msg)
 {
-    // mtx.lock();
     RCLCPP_INFO(this->get_logger(), "Received shelfino description");
     double rad = parseShelfinoRadius(msg->data);
     RCLCPP_INFO(this->get_logger(), "Parsed shelfino description");
@@ -217,12 +192,7 @@ void RoadmapGenerator::shelfinoDescr_callback(std_msgs::msg::String::SharedPtr m
     if (received_all() && (!mapping_started))
     {
         mapping_started = true;
-        // mtx.unlock();
         on_map_complete();
-    }
-    else
-    {
-        // mtx.unlock();
     }
 }
 
@@ -240,7 +210,6 @@ void RoadmapGenerator::dummy_shelfinoDescr()
 
 void RoadmapGenerator::gate_callback(geometry_msgs::msg::PoseArray::SharedPtr msg)
 {
-    // mtx.lock();
     RCLCPP_INFO(this->get_logger(), "Received %ld gate(s)", msg->poses.size());
     auto orientation = msg->poses.at(0).orientation;
     auto pos = msg->poses.at(0).position;
@@ -256,12 +225,7 @@ void RoadmapGenerator::gate_callback(geometry_msgs::msg::PoseArray::SharedPtr ms
     if (received_all() && (!mapping_started))
     {
         mapping_started = true;
-        // mtx.unlock();
         on_map_complete();
-    }
-    else
-    {
-        // mtx.unlock();
     }
 }
 
@@ -285,17 +249,77 @@ void RoadmapGenerator::dummy_gate()
     }
 }
 
-void RoadmapGenerator::on_map_complete()
+void RoadmapGenerator::smooth_bisect(const std::vector<std::shared_ptr<Vertex>> &path,
+                                     std::list<std::shared_ptr<Vertex>> &smooth,
+                                     size_t idx0, size_t idx1,
+                                     const std::list<std::shared_ptr<Vertex>>::iterator &smooth_inserter)
 {
-    printf("Received all map ingredients\n");
+    if (idx0 + 1 == idx1)
+    {
+        return;
+    }
+    if (map.isFree(Segment_2(*path.at(idx0), *path.at(idx1))))
+    {
+        return;
+    }
+    size_t mid_idx = (idx1 + idx0) / 2;
+    auto first_half_inserter = smooth.insert(smooth_inserter, path.at(mid_idx));
+    smooth_bisect(path, smooth, mid_idx, idx1, smooth_inserter);
+    smooth_bisect(path, smooth, idx0, mid_idx, first_half_inserter);
+}
+
+ // Create a graph of vertices that are Hammersley samples, and connect them in a PRM.
+ // G is a Graph object that already contains the POI vertices.
+void RoadmapGenerator::generate_PRM(Graph &G) {
     Bbox_2 bbox = map.getBbox();
-    const size_t N = 5000;
-    double *samples = hammersley_sequence(0, N - 1, 2, N);
-    printf("Got samples\n");
+    double *samples = hammersley_sequence(0, N_SAMPLES - 1, 2, N_SAMPLES);
+    printf("Got Hammesley samples\n");
 
-    map.offsetAllPolys();
+    // Insert samples that are free as vertices in G
+    for (size_t i = 0; i < N_SAMPLES; i++)
+    {
+        Vertex q{
+            samples[i * 2] * bbox.x_span() + bbox.xmin(),
+            samples[i * 2 + 1] * bbox.y_span() + bbox.ymin()};
+        if (map.isFree(q) && !map.isPOI(q))
+            G.addVertex(std::make_shared<Vertex>(q));
+    }
+    printf("Inserted verteces\n");
 
+    // Connect nearby samples if the segment between them is free
+    for (auto &q : *G.getVerteces())
+    {
+        auto knn = G.KNN(q, KNN_K);
+        for (auto &n : *knn)
+        {
+            // don't connect a vertex to itself
+            if (q == n) 
+                continue;
 
+            // don't connect vertices that are already neighbours
+            bool already_connected = false;
+            for (auto n_n : *(n->getNeighbours()))
+            {
+                if (n_n.first == q)
+                {
+                    already_connected = true;
+                    break;
+                }
+            }
+            if (already_connected)
+                continue;
+            
+            Segment_2 seg{*q, *n};
+            if (map.isFree(seg))
+                G.connect(q, n, std::make_shared<SegmentEdge>(seg));
+        }
+    }
+    printf("PRM created\n");
+    delete[] samples;
+}
+
+void RoadmapGenerator::smooth_PRM_paths() {
+    // Initialize PRM graph and insert POI vertices
     Graph G;
     std::vector<shared_ptr<Vertex>> POIs;
     std::shared_ptr<Vertex> gateVertex = std::make_shared<Vertex>(map.getGate().source());
@@ -310,62 +334,43 @@ void RoadmapGenerator::on_map_complete()
         G.addVertex(victimVertex);
         POIs.push_back(victimVertex);
     }
-    for (size_t i = 0; i < N; i++)
-    {
-        Vertex q{
-            samples[i * 2] * bbox.x_span() + bbox.xmin(),
-            samples[i * 2 + 1] * bbox.y_span() + bbox.ymin()};
-        if (map.isFree(q) && !map.isPOI(q))
-            G.addVertex(std::make_shared<Vertex>(q));
-    }
-    printf("inserted verteces\n");
+    generate_PRM(G);
 
-    map.display();
-
-    for (auto &q : *G.getVerteces())
+    int col_cntr = 0;
+    for (size_t i = 0; i < POIs.size(); i++)
     {
-        auto knn = G.KNN(q, KNN_K);
-        for (auto &n : *knn)
+        for (size_t j = i + 1; j < POIs.size(); j++)
         {
-            if (q == n) // don't connect to itself
-                continue;
-            bool already_connected = false;
-            for (auto n_n : *(n->getNeighbours()))
-            {
-                if (n_n.first == q)
-                { // don't connect if already connected
-                    already_connected = true;
-                    break;
-                }
-            }
-            if (already_connected)
-                continue;
-            Segment_2 seg{*q, *n};
-            if (map.isFree(seg))
-            {
-                G.connect(q, n, std::make_shared<SegmentEdge>(seg));
-            }
-        }
-    }
-    printf("inserted edges\n");
-    for (size_t i=0; i<POIs.size(); i++) {
-        for (size_t j=i+1; j<POIs.size(); j++) {
-
             std::vector<std::shared_ptr<Vertex>> shortestPath = G.dijkstra(POIs.at(i), POIs.at(j));
-            for (size_t k = 0; k < shortestPath.size()-1; k++) {
-                auto p1 = shortestPath.at(k);
-                auto p2 = shortestPath.at(k+1);
-                draw_segment(Segment_2(*p1, *p2), "m");
-            }
+            std::list<std::shared_ptr<Vertex>> smoothedPath;
+            std::shared_ptr<Vertex> first = shortestPath.front();
+            std::shared_ptr<Vertex> last = shortestPath.back();
+            smoothedPath.push_front(first);
+            smoothedPath.push_back(last);
+            smooth_bisect(shortestPath, smoothedPath, 0, shortestPath.size()-1, --smoothedPath.end());
 
-        } 
+            auto it0 = smoothedPath.begin();
+            for (auto it1 = smoothedPath.begin(); (++it1) != smoothedPath.end(); ++it0)
+            {
+                draw_segment(Segment_2(**it0, **it1), matplotlib_color_range[col_cntr], 2);
+            }
+            col_cntr = (col_cntr + 1) % matplotlib_color_range.size();
+        }
     }
     for (auto e : *G.getEdges())
     {
-        draw_segment(e->getSegment(), "k", 0.5);
+        draw_segment(e->getSegment(), "k", 0.2);
     }
 
-    delete[] samples;
+}
+
+void RoadmapGenerator::on_map_complete()
+{
+    printf("Received all map ingredients\n");
+    map.offsetAllPolys();
+    printf("Map polygons offset\n");
+    smooth_PRM_paths();
+    map.display();
     plt_show();
 }
 
@@ -379,8 +384,18 @@ int main(int argc, char *argv[])
     // rmg.dummy_shelfinoDescr();
     // rmg.dummy_gate();
 
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RoadmapGenerator>());
-    rclcpp::shutdown();
+    // rclcpp::init(argc, argv);
+    // rclcpp::spin(std::make_shared<RoadmapGenerator>());
+    // rclcpp::shutdown();
+    Point_2 p0{1, 1};
+    Point_2 p1{8, 4};
+
+    SPDubinsPath path{p0, p1, -3, 3, 2};
+    printf("created SPDP\n");
+    auto PL = path.getPolyline(180);
+    printf("created PL\n");
+    draw_polyline(PL, "r");
+    printf("plotted PL\n");
+    plt_show();
     return 0;
 }

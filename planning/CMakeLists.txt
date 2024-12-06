@@ -21,7 +21,9 @@ add_executable(roadmap_gen
     src/roadmap_gen.cpp 
     include/planning/mapgeometry.cpp
     include/hammersley/hammersley.cpp
-    include/planning/graphs.cpp)
+    include/planning/graphs.cpp
+    include/planning/dubins.cpp
+    include/planning/dubins_solvers.cpp)
 ament_target_dependencies(roadmap_gen rclcpp std_msgs geometry_msgs obstacles_msgs urdf)
 target_include_directories(roadmap_gen PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
