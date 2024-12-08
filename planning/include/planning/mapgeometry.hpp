@@ -41,6 +41,7 @@ constexpr std::array<const char*, 10> matplotlib_color_range = {
 
 Polygon_2 polygonROS2CGAL(geometry_msgs::msg::Polygon &msg);
 Direction_2 orientation2dir(geometry_msgs::msg::Quaternion &orientation);
+double dir2ang(Direction_2 dir);
 Polygon_2 circle2poly(Circle_2 &c, int n);
 void draw_circle(const Point_2 &center, const double r, std::string color, bool fill = false, int resolution = 90);
 void draw_poly(const Polygon_2 &p, std::string color, bool fill = false);

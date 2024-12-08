@@ -7,6 +7,11 @@ void draw_segment(const Segment_2 &s, std::string color, double linewidth)
     plt::plot({s[0].x(), s[1].x()}, {s[0].y(), s[1].y()}, {{"color", color}, {"linewidth", std::to_string(linewidth)}});
 }
 
+
+double dir2ang(Direction_2 dir) {
+    return std::atan2(dir.dy(), dir.dx());
+}
+
 void draw_polyline(const std::vector<Point_2> &points, std::string color, double linewidth)
 {
     std::vector<double> xs, ys;

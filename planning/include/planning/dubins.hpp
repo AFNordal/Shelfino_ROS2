@@ -27,7 +27,7 @@ private:
 
 public:
     Arc_2() {};
-    Arc_2(Point_2 center, double _k, double _th0, double _th1, int _sign)
+    Arc_2(const Point_2 &center, const double &_k, const double &_th0, const double &_th1, const int &_sign)
     {
         sign = _sign;
         k = _k;

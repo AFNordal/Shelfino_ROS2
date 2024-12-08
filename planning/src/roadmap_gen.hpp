@@ -16,9 +16,10 @@
 
 #include "hammersley/hammersley.hpp"
 
-#define N_SAMPLES 1000
-#define KNN_K 4
-#define SHELFINO_TURNING_R 0.5
+#define N_SAMPLES 10000
+#define KNN_K 5
+#define SHELFINO_TURNING_R 0.5 // REAL
+// #define SHELFINO_TURNING_R 1.5
 #define SHELFINO_VEL 0.8
 
 using std::placeholders::_1;

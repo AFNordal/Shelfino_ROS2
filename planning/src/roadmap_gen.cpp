@@ -268,9 +268,10 @@ void RoadmapGenerator::smooth_bisect(const std::vector<std::shared_ptr<Vertex>> 
     smooth_bisect(path, smooth, idx0, mid_idx, first_half_inserter);
 }
 
- // Create a graph of vertices that are Hammersley samples, and connect them in a PRM.
- // G is a Graph object that already contains the POI vertices.
-void RoadmapGenerator::generate_PRM(Graph &G) {
+// Create a graph of vertices that are Hammersley samples, and connect them in a PRM.
+// G is a Graph object that already contains the POI vertices.
+void RoadmapGenerator::generate_PRM(Graph &G)
+{
     Bbox_2 bbox = map.getBbox();
     double *samples = hammersley_sequence(0, N_SAMPLES - 1, 2, N_SAMPLES);
     printf("Got Hammesley samples\n");
@@ -293,7 +294,7 @@ void RoadmapGenerator::generate_PRM(Graph &G) {
         for (auto &n : *knn)
         {
             // don't connect a vertex to itself
-            if (q == n) 
+            if (q == n)
                 continue;
 
             // don't connect vertices that are already neighbours
@@ -308,7 +309,7 @@ void RoadmapGenerator::generate_PRM(Graph &G) {
             }
             if (already_connected)
                 continue;
-            
+
             Segment_2 seg{*q, *n};
             if (map.isFree(seg))
                 G.connect(q, n, std::make_shared<SegmentEdge>(seg));
@@ -318,7 +319,8 @@ void RoadmapGenerator::generate_PRM(Graph &G) {
     delete[] samples;
 }
 
-void RoadmapGenerator::smooth_PRM_paths() {
+void RoadmapGenerator::smooth_PRM_paths()
+{
     // Initialize PRM graph and insert POI vertices
     Graph G;
     std::vector<shared_ptr<Vertex>> POIs;
@@ -347,21 +349,66 @@ void RoadmapGenerator::smooth_PRM_paths() {
             std::shared_ptr<Vertex> last = shortestPath.back();
             smoothedPath.push_front(first);
             smoothedPath.push_back(last);
-            smooth_bisect(shortestPath, smoothedPath, 0, shortestPath.size()-1, --smoothedPath.end());
-            
-            auto it0 = smoothedPath.begin();
-            for (auto it1 = smoothedPath.begin(); (++it1) != smoothedPath.end(); ++it0)
+            smooth_bisect(shortestPath, smoothedPath, 0, shortestPath.size() - 1, --smoothedPath.end());
+
+            std::vector<Point_2> pathPoints{};
+            for (auto &p : smoothedPath)
             {
-                draw_segment(Segment_2(**it0, **it1), matplotlib_color_range[col_cntr], 2);
+                pathPoints.push_back(*p);
             }
+            // auto it0 = smoothedPath.begin();
+            // for (auto it1 = smoothedPath.begin(); (++it1) != smoothedPath.end(); ++it0)
+            // {
+            //     dubinsPoints.push_back()
+            //     draw_segment(Segment_2(**it0, **it1), matplotlib_color_range[col_cntr], 2);
+            // }
+            std::vector<double> angles;
+            std::vector<DubinsParams> sol;
+            double th0, th1;
+            if (first == shelfinoVertex)
+            {
+                th0 = dir2ang(map.getShelfino().direction());
+            }
+            else if (first == gateVertex)
+            {
+                th0 = M_PI + dir2ang(map.getGate().direction());
+            }
+            else
+            {
+                auto diff = pathPoints.at(1) - pathPoints.front();
+                th0 = std::atan2(diff.y(), diff.x());
+            }
+
+            if (last == shelfinoVertex)
+            {
+                th1 = M_PI + dir2ang(map.getShelfino().direction());
+            }
+            else if (last == gateVertex)
+            {
+                th1 = dir2ang(map.getGate().direction());
+            }
+            else
+            {
+                auto diff = pathPoints.back() - pathPoints.at(pathPoints.size() - 2);
+                th1 = std::atan2(diff.y(), diff.x());
+            }
+            double L = optimalMPDubinsParams(angles, sol, pathPoints, th0, th1, 1. / SHELFINO_TURNING_R, 45);
+            printf("L={%f}\n", L);
+            for (size_t i = 0; i < pathPoints.size() - 1; i++)
+            {
+                SPDubinsPath p{pathPoints.at(i), pathPoints.at(i + 1), angles.at(i), angles.at(i + 1), 1. / SHELFINO_TURNING_R};
+                auto PL = p.getPolyline(90);
+                draw_polyline(PL, matplotlib_color_range[col_cntr]);
+            }
+            draw_points(pathPoints, "b");
+            // draw_polyline(pathPoints, matplotlib_color_range[col_cntr], 1);
             col_cntr = (col_cntr + 1) % matplotlib_color_range.size();
         }
     }
-    for (auto e : *G.getEdges())
-    {
-        draw_segment(e->getSegment(), "k", 0.2);
-    }
-
+    // for (auto e : *G.getEdges())
+    // {
+    //     draw_segment(e->getSegment(), "k", 0.2);
+    // }
 }
 
 void RoadmapGenerator::on_map_complete()
@@ -388,8 +435,6 @@ int main(int argc, char *argv[])
     rclcpp::spin(std::make_shared<RoadmapGenerator>());
     rclcpp::shutdown();
 
-
-
     // Point_2 p0{1, 1};
     // Point_2 p1{8, 4};
 
@@ -397,26 +442,27 @@ int main(int argc, char *argv[])
     // auto PL = path.getPolyline(180);
     // draw_polyline(PL, "r");
     // plt_show();
-    std::vector<Point_2> PVec;
-    PVec.emplace_back(1, 1);
-    PVec.emplace_back(1, 2);
-    PVec.emplace_back(4, 1.2);
-    PVec.emplace_back(7, 0);
-    std::vector<double> angles;
-    std::vector<DubinsParams> sol;
-    const double k = 2;
-    double L = optimalMPDubinsParams(angles, sol, PVec, -0.5, 2, k, 16);
-    printf("L={%f}\n", L);
-    for (size_t i = 0; i < PVec.size()-1; i++) {
-        SPDubinsPath p{PVec.at(i), PVec.at(i+1), angles.at(i), angles.at(i+1), k};
-        auto PL = p.getPolyline(90);
-        draw_polyline(PL, "r");
-    }
-    draw_points(PVec, "r");
-    for (const auto& i: angles)
-        std::cout << i << '\n';
-    draw_arrows(PVec, angles, "r");
-    plt_show();
-    
+    // std::vector<Point_2> PVec;
+    // PVec.emplace_back(1, 1);
+    // PVec.emplace_back(1, 2);
+    // PVec.emplace_back(4, 1.2);
+    // PVec.emplace_back(7, 0);
+    // std::vector<double> angles;
+    // std::vector<DubinsParams> sol;
+    // const double k = 2;
+    // double L = optimalMPDubinsParams(angles, sol, PVec, -0.5, 2, k, 16);
+    // printf("L={%f}\n", L);
+    // for (size_t i = 0; i < PVec.size() - 1; i++)
+    // {
+    //     SPDubinsPath p{PVec.at(i), PVec.at(i + 1), angles.at(i), angles.at(i + 1), k};
+    //     auto PL = p.getPolyline(90);
+    //     draw_polyline(PL, "r");
+    // }
+    // draw_points(PVec, "r");
+    // for (const auto &i : angles)
+    //     std::cout << i << '\n';
+    // draw_arrows(PVec, angles, "r");
+    // plt_show();
+
     return 0;
 }

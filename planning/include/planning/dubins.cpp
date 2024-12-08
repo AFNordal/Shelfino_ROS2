@@ -106,6 +106,19 @@ std::array<double, 3> arr_mul(const std::array<double, 3> &s, const double &x)
 double optimalMPDubinsParams(std::vector<double> &best_angles, std::vector<DubinsParams> &sol_params, const std::vector<Point_2> &ps, double th0, double th1, double k, const size_t &angRes)
 {
     const size_t N = ps.size();
+    if (N == 2) {
+        StdDubinsProblem stdProb = createStdDubinsProblem(ps.at(0), ps.at(1), th0, th1, k);
+        auto optimalParams = optimalDubinsParams(stdProb);
+        std::array<double, 3> lengths = arr_mul(optimalParams.first, stdProb.scale);
+        optimalParams.first = lengths;
+        std::array<int, 3> signs = optimalParams.second;
+        best_angles = std::vector<double>{};
+        best_angles.push_back(th0);
+        best_angles.push_back(th1);
+        sol_params = std::vector<DubinsParams>{};
+        sol_params.push_back(optimalParams);
+        return arr_sum(lengths);
+    }
     std::vector<std::vector<double>> L(N - 1, std::vector<double>(angRes, 0));
     std::vector<std::vector<size_t>> ang_idx_tracker(N - 2, std::vector<size_t>(angRes, 0));
     std::vector<std::vector<DubinsParams>> sol_tracker(N - 1, std::vector<DubinsParams>(angRes, DubinsParams()));
@@ -116,11 +129,11 @@ double optimalMPDubinsParams(std::vector<double> &best_angles, std::vector<Dubin
         StdDubinsProblem stdProb = createStdDubinsProblem(ps.at(N - 2), ps.at(N - 1), ang, th1, k);
         auto optimalParams = optimalDubinsParams(stdProb);
         std::array<double, 3> lengths = arr_mul(optimalParams.first, stdProb.scale);
+        optimalParams.first = lengths;
         std::array<int, 3> signs = optimalParams.second;
         L.at(N - 2).at(h) = arr_sum(lengths);
         sol_tracker.at(N - 2).at(h) = optimalParams;
     }
-
     for (size_t i = N - 3; i > 0; i--)
     {
         for (size_t h1 = 0; h1 < angRes; h1++)
@@ -134,6 +147,7 @@ double optimalMPDubinsParams(std::vector<double> &best_angles, std::vector<Dubin
                 StdDubinsProblem stdProb = createStdDubinsProblem(ps.at(i), ps.at(i + 1), ang1, ang2, k);
                 auto optimalParams = optimalDubinsParams(stdProb);
                 std::array<double, 3> lengths = arr_mul(optimalParams.first, stdProb.scale);
+                optimalParams.first = lengths;
                 std::array<int, 3> signs = optimalParams.second;
                 double l = arr_sum(lengths) + L.at(i + 1).at(h2);
                 if (l < shortest)
@@ -156,6 +170,7 @@ double optimalMPDubinsParams(std::vector<double> &best_angles, std::vector<Dubin
         StdDubinsProblem stdProb = createStdDubinsProblem(ps.at(0), ps.at(1), th0, ang, k);
         auto optimalParams = optimalDubinsParams(stdProb);
         std::array<double, 3> lengths = arr_mul(optimalParams.first, stdProb.scale);
+        optimalParams.first = lengths;
         std::array<int, 3> signs = optimalParams.second;
         double l = arr_sum(lengths) + L.at(1).at(h);
         if (l < shortest)
