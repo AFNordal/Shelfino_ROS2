@@ -48,6 +48,8 @@ bool point_in_bbox(const Point_2 &p, const Bbox_2 &box);
 bool segment_polygon_intersection(const Segment_2 &s, const Polygon_2 &p);
 void draw_segment(const Segment_2 &s, std::string color, double linewidth = 1);
 void draw_polyline(const std::vector<Point_2> &points, std::string color, double linewidth = 1);
+void draw_points(const std::vector<Point_2> &points, std::string color);
+void draw_arrows(const std::vector<Point_2> &points, const std::vector<double> &angles, std::string color);
 
 
 void plt_show();

@@ -387,15 +387,40 @@ int main(int argc, char *argv[])
     // rclcpp::init(argc, argv);
     // rclcpp::spin(std::make_shared<RoadmapGenerator>());
     // rclcpp::shutdown();
-    Point_2 p0{1, 1};
-    Point_2 p1{8, 4};
 
-    SPDubinsPath path{p0, p1, -3, 3, 2};
-    printf("created SPDP\n");
-    auto PL = path.getPolyline(180);
-    printf("created PL\n");
-    draw_polyline(PL, "r");
-    printf("plotted PL\n");
+
+
+    // Point_2 p0{1, 1};
+    // Point_2 p1{8, 4};
+
+    // SPDubinsPath path{p0, p1, -3, 3, 2};
+    // auto PL = path.getPolyline(180);
+    // draw_polyline(PL, "r");
+    // plt_show();
+    std::vector<Point_2> PVec;
+    PVec.emplace_back(1, 1);
+    PVec.emplace_back(1, 2);
+    PVec.emplace_back(4, 1.2);
+    PVec.emplace_back(7, 0);
+    std::vector<double> angles;
+    std::vector<DubinsParams> sol;
+    const double k = 2;
+    double L = optimalMPDubinsParams(angles, sol, PVec, -0.5, 2, k, 16);
+    printf("L={%f}\n", L);
+    for (size_t i = 0; i < PVec.size()-1; i++) {
+        SPDubinsPath p{PVec.at(i), PVec.at(i+1), angles.at(i), angles.at(i+1), k};
+        auto PL = p.getPolyline(90);
+        draw_polyline(PL, "r");
+    }
+    draw_points(PVec, "r");
+    for (const auto& i: angles)
+        std::cout << i << '\n';
+    draw_arrows(PVec, angles, "r");
     plt_show();
+    // for (size_t i = 0; i < PVec.size(); i++)
+    // {
+        
+    // }
+    
     return 0;
 }

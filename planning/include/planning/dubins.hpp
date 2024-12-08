@@ -8,6 +8,8 @@ typedef K::Point_2 Point_2;
 typedef K::Circle_2 Circle_2;
 typedef K::Segment_2 Segment_2;
 
+typedef std::pair<std::array<double, 3>, std::array<int, 3>> DubinsParams;
+
 typedef struct
 {
     double th0, th1;
@@ -106,13 +108,15 @@ public:
         createOptimal();
     }
 
+    void setFromParams(DubinsParams p, double scale);
     void createOptimal();
     std::vector<Point_2> getPolyline(int res);
 };
 
 
 StdDubinsProblem createStdDubinsProblem(Point_2 p0, Point_2 p1, double th0, double th1, double k);
-std::pair<std::array<double, 3>, std::array<int, 3>> optimalDubinsParams(StdDubinsProblem prob);
+DubinsParams optimalDubinsParams(StdDubinsProblem prob);
+double optimalMPDubinsParams(std::vector<double> &best_angles, std::vector<DubinsParams> &solution, const std::vector<Point_2> &ps, double th0, double th1, double k, const size_t &angRes);
 
 class MPDubinsPath
 {

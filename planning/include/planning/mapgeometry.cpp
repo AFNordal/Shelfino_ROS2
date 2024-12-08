@@ -10,11 +10,40 @@ void draw_segment(const Segment_2 &s, std::string color, double linewidth)
 void draw_polyline(const std::vector<Point_2> &points, std::string color, double linewidth)
 {
     std::vector<double> xs, ys;
-    for (auto &p: points) {
+    for (auto &p : points)
+    {
         xs.push_back(p.x());
         ys.push_back(p.y());
     }
     plt::plot(xs, ys, {{"color", color}, {"linewidth", std::to_string(linewidth)}});
+}
+
+void draw_points(const std::vector<Point_2> &points, std::string color)
+{
+    std::vector<double> xs, ys;
+    for (auto &p : points)
+    {
+        xs.push_back(p.x());
+        ys.push_back(p.y());
+    }
+    plt::scatter(xs, ys, 1, {{"color", color}});
+}
+
+void draw_arrows(const std::vector<Point_2> &points, const std::vector<double> &angles, std::string color)
+{
+    std::vector<double> xs, ys;
+    for (size_t i = 0; i < points.size(); i++)
+    {
+        double x = points.at(i).x();
+        double y = points.at(i).y();
+        double dx = std::cos(angles.at(i));
+        double dy = std::sin(angles.at(i));
+        printf("%f, %f, %f, %f\n", x, y, dx, dy);
+        plt::arrow(x, y, dx, dy);
+        // plt::arrow(1, 1, 1, 1);
+    }
+    
+    plt::set_aspect_equal();//REMOVE
 }
 
 Direction_2 orientation2dir(geometry_msgs::msg::Quaternion &orientation)
@@ -210,19 +239,26 @@ bool Map::isPOI(const Point_2 &p)
     }
     if (shelfino.source() == p || gate.source() == p)
         return true;
+    return false;
 }
 
-void Obstacle::offset(double r) {
-    if (t == CIRCLE) {
-        circle = Circle_2(circle.center(), std::pow(radius+r, 2));
-    } else {
+void Obstacle::offset(double r)
+{
+    if (t == CIRCLE)
+    {
+        circle = Circle_2(circle.center(), std::pow(radius + r, 2));
+    }
+    else
+    {
         auto polyVec = CGAL::create_exterior_skeleton_and_offset_polygons_2(r, polygon);
         polygon = *polyVec.at(0);
     }
 }
 
-void Map::offsetAllPolys() {
-    for (size_t i=0; i<obstacles.size(); i++) {
+void Map::offsetAllPolys()
+{
+    for (size_t i = 0; i < obstacles.size(); i++)
+    {
         obstacles[i].offset(shelfino_r);
     }
     auto polyVec = CGAL::create_interior_skeleton_and_offset_polygons_2(shelfino_r, border);
