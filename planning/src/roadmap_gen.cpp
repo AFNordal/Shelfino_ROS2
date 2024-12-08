@@ -348,7 +348,7 @@ void RoadmapGenerator::smooth_PRM_paths() {
             smoothedPath.push_front(first);
             smoothedPath.push_back(last);
             smooth_bisect(shortestPath, smoothedPath, 0, shortestPath.size()-1, --smoothedPath.end());
-
+            
             auto it0 = smoothedPath.begin();
             for (auto it1 = smoothedPath.begin(); (++it1) != smoothedPath.end(); ++it0)
             {
@@ -384,9 +384,9 @@ int main(int argc, char *argv[])
     // rmg.dummy_shelfinoDescr();
     // rmg.dummy_gate();
 
-    // rclcpp::init(argc, argv);
-    // rclcpp::spin(std::make_shared<RoadmapGenerator>());
-    // rclcpp::shutdown();
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<RoadmapGenerator>());
+    rclcpp::shutdown();
 
 
 
@@ -417,10 +417,6 @@ int main(int argc, char *argv[])
         std::cout << i << '\n';
     draw_arrows(PVec, angles, "r");
     plt_show();
-    // for (size_t i = 0; i < PVec.size(); i++)
-    // {
-        
-    // }
     
     return 0;
 }
