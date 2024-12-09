@@ -16,7 +16,9 @@ class MotionController : public rclcpp::Node
 {
 public:
     MotionController();
-    void move_to_point(double x_goal, double y_goal);
+    void move_to_point(double x_goal, double y_goal, bool has_next_point, double next_x,double next_y );
+    void follow_path(const std::vector<std::pair<double, double>>& path);
+    //double speed = 1.2;
 
 private:
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
