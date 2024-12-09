@@ -7,8 +7,8 @@ void draw_segment(const Segment_2 &s, std::string color, double linewidth)
     plt::plot({s[0].x(), s[1].x()}, {s[0].y(), s[1].y()}, {{"color", color}, {"linewidth", std::to_string(linewidth)}});
 }
 
-
-double dir2ang(Direction_2 dir) {
+double dir2ang(Direction_2 dir)
+{
     return std::atan2(dir.dy(), dir.dx());
 }
 
@@ -47,8 +47,8 @@ void draw_arrows(const std::vector<Point_2> &points, const std::vector<double> &
         plt::arrow(x, y, dx, dy);
         // plt::arrow(1, 1, 1, 1);
     }
-    
-    plt::set_aspect_equal();//REMOVE
+
+    plt::set_aspect_equal(); // REMOVE
 }
 
 Direction_2 orientation2dir(geometry_msgs::msg::Quaternion &orientation)
@@ -186,7 +186,7 @@ bool point_in_bbox(const Point_2 &p, const Bbox_2 &box)
             p.y() >= box.ymin() && p.y() <= box.ymax());
 }
 
-bool Map::isFree(const Point_2 &p)
+bool Map::isFree(const Point_2 &p) const
 {
     if (border.has_on_unbounded_side(p))
         return false;
@@ -210,7 +210,7 @@ bool segment_polygon_intersection(const Segment_2 &s, const Polygon_2 &p)
     return false;
 }
 
-bool Obstacle::segmentCollides(const Segment_2 &s)
+bool Obstacle::segmentCollides(const Segment_2 &s) const
 {
     if (t == CIRCLE)
     {
@@ -222,7 +222,7 @@ bool Obstacle::segmentCollides(const Segment_2 &s)
     }
 }
 
-bool Map::isFree(const Segment_2 &s)
+bool Map::isFree(const Segment_2 &s) const
 {
     if (segment_polygon_intersection(s, border))
         return false;
@@ -230,6 +230,16 @@ bool Map::isFree(const Segment_2 &s)
     for (auto &obst : obstacles)
     {
         if (obst.segmentCollides(s))
+            return false;
+    }
+    return true;
+}
+
+bool Map::isFree(const Arc_2 &a, const int n_samples) const
+{
+    for (double t = 0; t <= 1; t += 1. / n_samples)
+    {
+        if (!isFree(a.eval(t)))
             return false;
     }
     return true;

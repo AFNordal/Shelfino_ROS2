@@ -2,6 +2,9 @@
 
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include "dubins_solvers.hpp"
+#include "mapgeometry.hpp"
+
+#define ARC_COLLISION_SAMPLES 10
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef K::Point_2 Point_2;
@@ -16,34 +19,6 @@ typedef struct
     double k;
     double scale;
 } StdDubinsProblem;
-
-class Arc_2
-{
-private:
-    Circle_2 circle;
-    Point_2 p0, p1;
-    double th0, th1, k;
-    int sign;
-
-public:
-    Arc_2() {};
-    Arc_2(const Point_2 &center, const double &_k, const double &_th0, const double &_th1, const int &_sign)
-    {
-        sign = _sign;
-        k = _k;
-        circle = Circle_2(center, 1. / (k * k));
-        th0 = _th0;
-        th1 = _th1;
-        p0 = Point_2(center.x() + sign / k * std::sin(th0),
-                     center.y() - sign / k * std::cos(th0));
-        p1 = Point_2(center.x() + sign / k * std::sin(th1),
-                     center.y() - sign / k * std::cos(th1));
-    }
-    Point_2 source() { return p0; }
-    Point_2 target() { return p1; }
-    Point_2 eval(double t) { return Point_2(circle.center().x() + sign / k * std::sin(th0 + t * (th1 - th0)),
-                                            circle.center().y() - sign / k * std::cos(th0 + t * (th1 - th0))); }
-};
 
 typedef enum
 {
@@ -87,6 +62,10 @@ public:
     Point_2 getP0() { return (t == ARC) ? arc.source() : seg[0]; }
     Point_2 getP1() { return (t == ARC) ? arc.target() : seg[1]; }
     std::vector<Point_2> getPolyline(int res);
+    DubinsPathSegmentType getType() { return t; }
+    Arc_2 getArc() { return arc; }
+    Segment_2 getSegment() { return seg; }
+    bool isFreeIn(const Map &map, const int arc_samples);
 };
 
 class SPDubinsPath
@@ -98,25 +77,48 @@ private:
     double k; // curvature
 
 public:
-    SPDubinsPath(Point_2 _p0, Point_2 _p1, double _th0, double _th1, double _k)
+    SPDubinsPath() {}
+    // SPDubinsPath(Point_2 _p0, Point_2 _p1, double _th0, double _th1, double _k)
+    // {
+    //     p0 = _p0;
+    //     p1 = _p1;
+    //     th0 = _th0;
+    //     th1 = _th1;
+    //     k = _k;
+    //     createOptimal();
+    // }
+    SPDubinsPath(Point_2 _p0, Point_2 _p1, double _th0, double _th1, double _k, DubinsParams p)
     {
         p0 = _p0;
         p1 = _p1;
         th0 = _th0;
         th1 = _th1;
         k = _k;
-        createOptimal();
+        setFromParams(p);
     }
 
-    void setFromParams(DubinsParams p, double scale);
-    void createOptimal();
+    void setFromParams(DubinsParams p);
+    // void createOptimal();
     std::vector<Point_2> getPolyline(int res);
+    std::vector<DubinsPathSegment> getSegments() { return segments; }
+    bool isFreeIn(const Map &map)
+    {
+        for (auto &s : segments)
+        {
+            if (!s.isFreeIn(map, ARC_COLLISION_SAMPLES))
+                return false;
+        }
+        return true;
+    }
 };
 
-
 StdDubinsProblem createStdDubinsProblem(Point_2 p0, Point_2 p1, double th0, double th1, double k);
-DubinsParams optimalDubinsParams(StdDubinsProblem prob);
-double optimalMPDubinsParams(std::vector<double> &best_angles, std::vector<DubinsParams> &solution, const std::vector<Point_2> &ps, double th0, double th1, double k, const size_t &angRes);
+std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, double th0, double th1, double k, const Map &map);
+double optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_paths,
+                             const std::vector<Point_2> &ps,
+                             double th0, double th1, double k, const size_t &angRes,
+                             bool th0_constrained, bool th1_constrained,
+                             const Map &map);
 
 class MPDubinsPath
 {

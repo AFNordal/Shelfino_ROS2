@@ -1,52 +1,70 @@
 #include "dubins.hpp"
 
-void SPDubinsPath::createOptimal()
-{
 
-    StdDubinsProblem stdProb = createStdDubinsProblem(p0, p1, th0, th1, k);
-    auto optimalParams = optimalDubinsParams(stdProb);
-    setFromParams(optimalParams, stdProb.scale);
+
+double arr_sum(std::array<double, 3> s)
+{
+    return s.at(0) + s.at(1) + s.at(2);
 }
 
-void SPDubinsPath::setFromParams(DubinsParams p, double scale)
+std::array<double, 3> arr_mul(const std::array<double, 3> &s, const double &x)
+{
+    return std::array<double, 3>{s.at(0) * x, s.at(1) * x, s.at(2) * x};
+}
+
+bool DubinsPathSegment::isFreeIn(const Map &map, const int arc_samples) {
+    if (t == ARC)
+        return map.isFree(arc, arc_samples);
+    else
+        return map.isFree(seg);
+}
+
+// void SPDubinsPath::createOptimal()
+// {
+//     auto optimalParams = optimalDubinsParams(p0, p1, th0, th1, k);
+//     setFromParams(optimalParams);
+// }
+
+void SPDubinsPath::setFromParams(DubinsParams p)
 {
     std::array<double, 3> lengths = p.first;
     std::array<int, 3> signs = p.second;
 
-    segments.emplace_back(p0, th0, lengths[0] * scale, signs[0], k);
+    segments.emplace_back(p0, th0, lengths[0], signs[0], k);
     segments.emplace_back(segments.back().getP1(),
                           segments.back().getTh1(),
-                          lengths[1] * scale, signs[1], k);
+                          lengths[1], signs[1], k);
     segments.emplace_back(segments.back().getP1(),
                           segments.back().getTh1(),
-                          lengths[2] * scale, signs[2], k);
+                          lengths[2], signs[2], k);
 }
 
-DubinsParams optimalDubinsParams(StdDubinsProblem prob)
+std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, double th0, double th1, double k, const Map& map)
 {
     double record_l = INFINITY;
-    std::array<int, 3> best_signs;
-    std::array<double, 3> best_lengths;
+    SPDubinsPath best_path;
+    StdDubinsProblem prob = createStdDubinsProblem(p0, p1, th0, th1, k);
     for (size_t i = 0; i < solvers.size(); i++)
     {
         SolType _s = solvers.at(i)(prob.th0, prob.th1, prob.k);
         bool ok = _s.first;
         if (!ok)
-        {
             continue;
-        }
-        auto lengths = _s.second;
+        auto lengths = arr_mul(_s.second, prob.scale);
+        DubinsParams params = std::make_pair(lengths, sign_configs.at(i));
+        SPDubinsPath p{p0, p1, th0, th1, k, params};
         double l = lengths.at(0) + lengths.at(1) + lengths.at(2);
+        if (!p.isFreeIn(map)) 
+            l += 10000;
         if (l < record_l)
         {
             record_l = l;
-            best_signs = sign_configs.at(i);
-            best_lengths = lengths;
+            best_path = p;
         }
     }
     if (record_l == INFINITY)
         printf("No optimal SP dubins found\n");
-    return std::make_pair(best_lengths, best_signs);
+    return std::make_pair(record_l, best_path);
 }
 
 StdDubinsProblem createStdDubinsProblem(Point_2 p0, Point_2 p1, double th0, double th1, double k)
@@ -76,7 +94,7 @@ std::vector<Point_2> DubinsPathSegment::getPolyline(int res)
         int n_points = std::max(int(fabs(th1 - th0) / (2 * M_PI) * res), 2);
         for (int i = 0; i < n_points; i++)
         {
-            line.push_back(arc.eval(i * 1. / (n_points-1)));
+            line.push_back(arc.eval(i * 1. / (n_points - 1)));
         }
     }
     return line;
@@ -93,48 +111,36 @@ std::vector<Point_2> SPDubinsPath::getPolyline(int res)
     return line;
 }
 
-double arr_sum(std::array<double, 3> s)
-{
-    return s.at(0) + s.at(1) + s.at(2);
-}
-
-std::array<double, 3> arr_mul(const std::array<double, 3> &s, const double &x)
-{
-    return std::array<double, 3>{s.at(0) * x, s.at(1) * x, s.at(2) * x};
-}
-
-double optimalMPDubinsParams(std::vector<double> &best_angles, std::vector<DubinsParams> &sol_params, const std::vector<Point_2> &ps, double th0, double th1, double k, const size_t &angRes)
+double optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_paths,
+                             const std::vector<Point_2> &ps,
+                             double th0, double th1, double k, const size_t &angRes,
+                             bool th0_constrained, bool th1_constrained,
+                             const Map &map)
 {
     const size_t N = ps.size();
-    if (N == 2) {
-        StdDubinsProblem stdProb = createStdDubinsProblem(ps.at(0), ps.at(1), th0, th1, k);
-        auto optimalParams = optimalDubinsParams(stdProb);
-        std::array<double, 3> lengths = arr_mul(optimalParams.first, stdProb.scale);
-        optimalParams.first = lengths;
-        std::array<int, 3> signs = optimalParams.second;
-        best_angles = std::vector<double>{};
-        best_angles.push_back(th0);
-        best_angles.push_back(th1);
-        sol_params = std::vector<DubinsParams>{};
-        sol_params.push_back(optimalParams);
-        return arr_sum(lengths);
-    }
-    std::vector<std::vector<double>> L(N - 1, std::vector<double>(angRes, 0));
-    std::vector<std::vector<size_t>> ang_idx_tracker(N - 2, std::vector<size_t>(angRes, 0));
-    std::vector<std::vector<DubinsParams>> sol_tracker(N - 1, std::vector<DubinsParams>(angRes, DubinsParams()));
-
-    for (size_t h = 0; h < angRes; h++)
+    if (N == 2 && th1_constrained && th0_constrained)
     {
-        double ang = h * 2 * M_PI / angRes;
-        StdDubinsProblem stdProb = createStdDubinsProblem(ps.at(N - 2), ps.at(N - 1), ang, th1, k);
-        auto optimalParams = optimalDubinsParams(stdProb);
-        std::array<double, 3> lengths = arr_mul(optimalParams.first, stdProb.scale);
-        optimalParams.first = lengths;
-        std::array<int, 3> signs = optimalParams.second;
-        L.at(N - 2).at(h) = arr_sum(lengths);
-        sol_tracker.at(N - 2).at(h) = optimalParams;
+        auto res = optimalDubinsParams(ps.at(0), ps.at(1), th0, th1, k, map);
+        sol_paths = std::vector<SPDubinsPath>{};
+        sol_paths.push_back(res.second);
+        return res.first;
     }
-    for (size_t i = N - 3; i > 0; i--)
+    int it_hi = th1_constrained ? N - 3 : N - 2;
+    int it_lo = th0_constrained ? 1 : 0;
+    std::vector<std::vector<double>> L(N - 1, std::vector<double>(angRes, 0));
+    std::vector<std::vector<size_t>> ang_idx_tracker(it_hi + 1, std::vector<size_t>(angRes, 0));
+    std::vector<std::vector<SPDubinsPath>> sol_tracker(N - 1, std::vector<SPDubinsPath>(angRes, SPDubinsPath()));
+    if (th1_constrained)
+    {
+        for (size_t h = 0; h < angRes; h++)
+        {
+            double ang = h * 2 * M_PI / angRes;
+            auto res = optimalDubinsParams(ps.at(N - 2), ps.at(N - 1), ang, th1, k, map);
+            L.at(N - 2).at(h) = res.first;
+            sol_tracker.at(N - 2).at(h) = res.second;
+        }
+    }
+    for (int i = it_hi; i >= it_lo; i--)
     {
         for (size_t h1 = 0; h1 < angRes; h1++)
         {
@@ -144,55 +150,68 @@ double optimalMPDubinsParams(std::vector<double> &best_angles, std::vector<Dubin
             for (size_t h2 = 0; h2 < angRes; h2++)
             {
                 double ang2 = h2 * 2 * M_PI / angRes;
-                StdDubinsProblem stdProb = createStdDubinsProblem(ps.at(i), ps.at(i + 1), ang1, ang2, k);
-                auto optimalParams = optimalDubinsParams(stdProb);
-                std::array<double, 3> lengths = arr_mul(optimalParams.first, stdProb.scale);
-                optimalParams.first = lengths;
-                std::array<int, 3> signs = optimalParams.second;
-                double l = arr_sum(lengths) + L.at(i + 1).at(h2);
+                auto res = optimalDubinsParams(ps.at(i), ps.at(i + 1), ang1, ang2, k, map);
+                double l;
+                if (i == N - 2)
+                    l = res.first;
+                else
+                    l = res.first + L.at(i + 1).at(h2);
                 if (l < shortest)
                 {
                     shortest = l;
                     best_h2 = h2;
-                    sol_tracker.at(i).at(h1) = optimalParams;
+                    sol_tracker.at(i).at(h1) = res.second;
                 }
             }
             ang_idx_tracker.at(i).at(h1) = best_h2;
             L.at(i).at(h1) = shortest;
         }
     }
-
     double shortest = INFINITY;
     size_t best_h = 0;
-    for (size_t h = 0; h < angRes; h++)
+    if (th0_constrained)
     {
-        double ang = h * 2 * M_PI / angRes;
-        StdDubinsProblem stdProb = createStdDubinsProblem(ps.at(0), ps.at(1), th0, ang, k);
-        auto optimalParams = optimalDubinsParams(stdProb);
-        std::array<double, 3> lengths = arr_mul(optimalParams.first, stdProb.scale);
-        optimalParams.first = lengths;
-        std::array<int, 3> signs = optimalParams.second;
-        double l = arr_sum(lengths) + L.at(1).at(h);
-        if (l < shortest)
+        for (size_t h = 0; h < angRes; h++)
         {
-            shortest = l;
-            best_h = h;
-            sol_tracker.at(0).at(h) = optimalParams;
+            double ang = h * 2 * M_PI / angRes;
+            auto res = optimalDubinsParams(ps.at(0), ps.at(1), th0, ang, k, map);
+            double l;
+            if (N > 2)
+                l = res.first + L.at(1).at(h);
+            else
+                l = res.first;
+            if (l < shortest)
+            {
+                shortest = l;
+                best_h = h;
+                sol_tracker.at(0).at(h) = res.second;
+            }
         }
     }
-    best_angles = std::vector<double>(N, 0);
-    sol_params = std::vector<DubinsParams>(N - 1, DubinsParams());
-    best_angles.at(0) = th0;
-    best_angles.at(N - 1) = th1;
-    sol_params.at(0) = sol_tracker.at(0).at(best_h);
-    double total_length = shortest;
-    for (size_t i = 1; i < N - 1; i++)
+    sol_paths = std::vector<SPDubinsPath>(N - 1, SPDubinsPath());
+    double total_length;
+    if (th0_constrained)
     {
-        best_angles.at(i) = best_h * 2 * M_PI / angRes;
-        sol_params.at(i) = sol_tracker.at(i).at(best_h);
+        sol_paths.at(0) = sol_tracker.at(0).at(best_h);
+    }
+    else
+    {
+        for (size_t h = 0; h < angRes; h++)
+        {
+            if (L.at(0).at(h) < shortest)
+            {
+                shortest = L.at(0).at(h);
+                best_h = h;
+            }
+        }
+    }
+    total_length = shortest;
+    for (size_t i = it_lo; i < it_hi + 2; i++)
+    {
+        if (i < N - 1)
+            sol_paths.at(i) = sol_tracker.at(i).at(best_h);
         if (i < N - 2)
             best_h = ang_idx_tracker.at(i).at(best_h);
     }
     return total_length;
-
 }

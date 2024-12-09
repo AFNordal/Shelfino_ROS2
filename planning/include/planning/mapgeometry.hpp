@@ -13,6 +13,7 @@
 #include "geometry_msgs/msg/pose.hpp"
 
 
+
 // typedef CGAL::Simple_cartesian<double> K;
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef K::Point_2 Point_2;
@@ -73,8 +74,37 @@ public:
     Obstacle(obstacles_msgs::msg::ObstacleMsg &o);
     Polygon_2 getPoly() { return (t == CIRCLE) ? circle2poly(circle, 90) : polygon; };
     bool contains(const Point_2 &p);
-    bool segmentCollides(const Segment_2 &s);
+    bool segmentCollides(const Segment_2 &s) const;
     void offset(double r);
+};
+
+class Arc_2
+{
+private:
+    Circle_2 circle;
+    Point_2 p0, p1;
+    double th0, th1, k;
+    int sign;
+
+public:
+    Arc_2() {};
+    Arc_2(const Point_2 &center, const double &_k, const double &_th0, const double &_th1, const int &_sign)
+    {
+        sign = _sign;
+        k = _k;
+        circle = Circle_2(center, 1. / (k * k));
+        th0 = _th0;
+        th1 = _th1;
+        p0 = Point_2(center.x() + sign / k * std::sin(th0),
+                     center.y() - sign / k * std::cos(th0));
+        p1 = Point_2(center.x() + sign / k * std::sin(th1),
+                     center.y() - sign / k * std::cos(th1));
+    }
+    Point_2 source() const { return p0; }
+    Point_2 target() const { return p1; }
+    Point_2 eval(double t) const { return Point_2(circle.center().x() + sign / k * std::sin(th0 + t * (th1 - th0)),
+                                            circle.center().y() - sign / k * std::cos(th0 + t * (th1 - th0))); }
+    Circle_2 getCircle() const { return circle; }
 };
 
 class Map
@@ -98,8 +128,9 @@ public:
     void setShelfinoRadius(double r) { shelfino_r = r; }
     void display();
     Bbox_2 getBbox();
-    bool isFree(const Point_2 &p);
-    bool isFree(const Segment_2 &s);
+    bool isFree(const Point_2 &p) const;
+    bool isFree(const Segment_2 &s) const;
+    bool isFree(const Arc_2 &s, const int n_samples) const;
     bool isPOI(const Point_2 &p);
     Ray_2 getShelfino() { return shelfino; }
     Ray_2 getGate() { return gate; }

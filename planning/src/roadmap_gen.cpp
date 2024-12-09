@@ -362,42 +362,40 @@ void RoadmapGenerator::smooth_PRM_paths()
             //     dubinsPoints.push_back()
             //     draw_segment(Segment_2(**it0, **it1), matplotlib_color_range[col_cntr], 2);
             // }
-            std::vector<double> angles;
-            std::vector<DubinsParams> sol;
+            std::vector<SPDubinsPath> sol;
             double th0, th1;
+            bool th0_constrained, th1_constrained;
             if (first == shelfinoVertex)
             {
                 th0 = dir2ang(map.getShelfino().direction());
+                th0_constrained = true;
             }
             else if (first == gateVertex)
             {
                 th0 = M_PI + dir2ang(map.getGate().direction());
+                th0_constrained = true;
             }
             else
-            {
-                auto diff = pathPoints.at(1) - pathPoints.front();
-                th0 = std::atan2(diff.y(), diff.x());
-            }
+                th0_constrained = false;
 
             if (last == shelfinoVertex)
             {
                 th1 = M_PI + dir2ang(map.getShelfino().direction());
+                th1_constrained = true;
             }
             else if (last == gateVertex)
             {
                 th1 = dir2ang(map.getGate().direction());
-            }
-            else
-            {
-                auto diff = pathPoints.back() - pathPoints.at(pathPoints.size() - 2);
-                th1 = std::atan2(diff.y(), diff.x());
-            }
-            double L = optimalMPDubinsParams(angles, sol, pathPoints, th0, th1, 1. / SHELFINO_TURNING_R, 45);
+                th1_constrained = true;
+            } else
+                th1_constrained = false;
+            double L = optimalMPDubinsParams(sol, pathPoints, th0, th1,
+                                             1. / SHELFINO_TURNING_R, 16,
+                                             th0_constrained, th1_constrained, map);
             printf("L={%f}\n", L);
             for (size_t i = 0; i < pathPoints.size() - 1; i++)
             {
-                SPDubinsPath p{pathPoints.at(i), pathPoints.at(i + 1), angles.at(i), angles.at(i + 1), 1. / SHELFINO_TURNING_R};
-                auto PL = p.getPolyline(90);
+                auto PL = sol.at(i).getPolyline(90);
                 draw_polyline(PL, matplotlib_color_range[col_cntr]);
             }
             draw_points(pathPoints, "b");
