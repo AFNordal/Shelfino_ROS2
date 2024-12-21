@@ -22,7 +22,7 @@ private:
 public:
     Edge(double l) : length{l} {};
     double getLength() { return length; }
-    virtual Segment_2 getSegment() {}
+    virtual Segment_2 getSegment() {return Segment_2{};}
 };
 
 class SegmentEdge : public Edge
@@ -40,14 +40,26 @@ class Vertex : public Point_2
 private:
     std::shared_ptr<std::vector<std::pair<std::shared_ptr<Vertex>, std::shared_ptr<Edge>>>> neighbours;
     int index;
+    Point_2 alias;
 
 public:
     Vertex(double x, double y) : Point_2(x, y)
     {
         neighbours = std::make_shared<std::vector<std::pair<std::shared_ptr<Vertex>, std::shared_ptr<Edge>>>>();
-    };
+        alias = Point_2{x, y};
+    }
     Vertex(Point_2 p) : Point_2(p) {
         neighbours = std::make_shared<std::vector<std::pair<std::shared_ptr<Vertex>, std::shared_ptr<Edge>>>>();
+        alias = p;
+    }
+    Vertex(double x, double y, double aliasX, double aliasY) : Point_2(x, y)
+    {
+        neighbours = std::make_shared<std::vector<std::pair<std::shared_ptr<Vertex>, std::shared_ptr<Edge>>>>();
+        alias = Point_2{aliasX, aliasY};
+    }
+    Vertex(Point_2 p, Point_2 aliasP) : Point_2(p) {
+        neighbours = std::make_shared<std::vector<std::pair<std::shared_ptr<Vertex>, std::shared_ptr<Edge>>>>();
+        alias = aliasP;
     }
     std::shared_ptr<std::vector<std::pair<std::shared_ptr<Vertex>, std::shared_ptr<Edge>>>> getNeighbours()
     {
@@ -56,6 +68,7 @@ public:
     void connect(std::shared_ptr<Vertex> v, std::shared_ptr<Edge> p);
     void setIndex(int i) { index = i; }
     int getIndex() { return index; }
+    Point_2 getAlias() { return alias; }
 };
 
 typedef CGAL::Triangulation_vertex_base_with_info_2<std::shared_ptr<Vertex>, K> Vb;
@@ -83,7 +96,7 @@ public:
         v->setIndex(V->size());
         V->push_back(v);
     }
-    std::shared_ptr<std::vector<std::shared_ptr<Vertex>>> getVerteces() { return V; }
+    std::shared_ptr<std::vector<std::shared_ptr<Vertex>>> getVertices() { return V; }
     std::shared_ptr<std::vector<std::shared_ptr<Edge>>> getEdges() { return E; }
     std::shared_ptr<std::vector<std::shared_ptr<Vertex>>> KNN(std::shared_ptr<Vertex> q, int k);
     void connect(std::shared_ptr<Vertex> v1, std::shared_ptr<Vertex> v2, std::shared_ptr<Edge> p);

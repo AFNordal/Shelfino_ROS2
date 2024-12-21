@@ -24,6 +24,11 @@
 
 using std::placeholders::_1;
 
+typedef enum {
+    PROBABILISTIC,
+    COMBINATORIAL
+} roadmapType;
+
 class RoadmapGenerator : public rclcpp::Node
 {
 public:
@@ -38,8 +43,6 @@ public:
 
 private:
     void on_map_complete();
-
-    bool mapping_started = false;
 
     void border_callback(const geometry_msgs::msg::PolygonStamped::SharedPtr msg);
     void obstacles_callback(obstacles_msgs::msg::ObstacleArrayMsg::SharedPtr msg);
@@ -56,8 +59,10 @@ private:
     rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr gateSubscription;
 
     bool border_received, obstacles_received, victims_received, initPose_received, shelfinoDescr_received, gate_received = false;
+    roadmapType strategy;
 
-    void smooth_PRM_paths();
+    void paths_from_roadmap();
+    void minimal_clearance_graph(Graph &G, const std::vector<shared_ptr<Vertex>> &POIs);
     void generate_PRM(Graph &G);
     void smooth_bisect(const std::vector<std::shared_ptr<Vertex>> &path,
                        std::list<std::shared_ptr<Vertex>> &smooth,

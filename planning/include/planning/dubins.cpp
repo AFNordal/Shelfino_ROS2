@@ -39,7 +39,7 @@ void SPDubinsPath::setFromParams(DubinsParams p)
                           lengths[2], signs[2], k);
 }
 
-std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, double th0, double th1, double k, const Map& map)
+std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, double th0, double th1, double k, const Map& map, const double obstr_cost)
 {
     double record_l = INFINITY;
     SPDubinsPath best_path;
@@ -55,7 +55,7 @@ std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, doub
         SPDubinsPath p{p0, p1, th0, th1, k, params};
         double l = lengths.at(0) + lengths.at(1) + lengths.at(2);
         if (!p.isFreeIn(map)) 
-            l += 10000;
+            l += obstr_cost;
         if (l < record_l)
         {
             record_l = l;
@@ -115,12 +115,12 @@ double optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_paths,
                              const std::vector<Point_2> &ps,
                              double th0, double th1, double k, const size_t &angRes,
                              bool th0_constrained, bool th1_constrained,
-                             const Map &map)
+                             const Map &map, const double obstr_cost)
 {
     const size_t N = ps.size();
     if (N == 2 && th1_constrained && th0_constrained)
     {
-        auto res = optimalDubinsParams(ps.at(0), ps.at(1), th0, th1, k, map);
+        auto res = optimalDubinsParams(ps.at(0), ps.at(1), th0, th1, k, map, obstr_cost);
         sol_paths = std::vector<SPDubinsPath>{};
         sol_paths.push_back(res.second);
         return res.first;
@@ -135,7 +135,7 @@ double optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_paths,
         for (size_t h = 0; h < angRes; h++)
         {
             double ang = h * 2 * M_PI / angRes;
-            auto res = optimalDubinsParams(ps.at(N - 2), ps.at(N - 1), ang, th1, k, map);
+            auto res = optimalDubinsParams(ps.at(N - 2), ps.at(N - 1), ang, th1, k, map, obstr_cost);
             L.at(N - 2).at(h) = res.first;
             sol_tracker.at(N - 2).at(h) = res.second;
         }
@@ -150,7 +150,7 @@ double optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_paths,
             for (size_t h2 = 0; h2 < angRes; h2++)
             {
                 double ang2 = h2 * 2 * M_PI / angRes;
-                auto res = optimalDubinsParams(ps.at(i), ps.at(i + 1), ang1, ang2, k, map);
+                auto res = optimalDubinsParams(ps.at(i), ps.at(i + 1), ang1, ang2, k, map, obstr_cost);
                 double l;
                 if (i == N - 2)
                     l = res.first;
@@ -174,7 +174,7 @@ double optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_paths,
         for (size_t h = 0; h < angRes; h++)
         {
             double ang = h * 2 * M_PI / angRes;
-            auto res = optimalDubinsParams(ps.at(0), ps.at(1), th0, ang, k, map);
+            auto res = optimalDubinsParams(ps.at(0), ps.at(1), th0, ang, k, map, obstr_cost);
             double l;
             if (N > 2)
                 l = res.first + L.at(1).at(h);

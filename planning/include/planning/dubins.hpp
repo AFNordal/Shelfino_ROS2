@@ -4,7 +4,7 @@
 #include "dubins_solvers.hpp"
 #include "mapgeometry.hpp"
 
-#define ARC_COLLISION_SAMPLES 10
+#define ARC_COLLISION_SAMPLES 3
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef K::Point_2 Point_2;
@@ -113,12 +113,12 @@ public:
 };
 
 StdDubinsProblem createStdDubinsProblem(Point_2 p0, Point_2 p1, double th0, double th1, double k);
-std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, double th0, double th1, double k, const Map &map);
+std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, double th0, double th1, double k, const Map &map, const double obstr_cost=1000);
 double optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_paths,
                              const std::vector<Point_2> &ps,
                              double th0, double th1, double k, const size_t &angRes,
                              bool th0_constrained, bool th1_constrained,
-                             const Map &map);
+                             const Map &map, const double obstr_cost=1000);
 
 class MPDubinsPath
 {
