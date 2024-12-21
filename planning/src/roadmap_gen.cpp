@@ -474,6 +474,7 @@ void RoadmapGenerator::paths_from_roadmap()
             std::vector<SPDubinsPath> sol;
             double th0, th1;
             bool th0_constrained, th1_constrained;
+            bool gate_connection = false;
             if (first == shelfinoVertex)
             {
                 th0 = dir2ang(map.getShelfino().direction());
@@ -483,6 +484,7 @@ void RoadmapGenerator::paths_from_roadmap()
             {
                 th0 = M_PI + dir2ang(map.getGate().direction());
                 th0_constrained = true;
+                gate_connection = true;
             }
             else
             {
@@ -499,16 +501,21 @@ void RoadmapGenerator::paths_from_roadmap()
             {
                 th1 = dir2ang(map.getGate().direction());
                 th1_constrained = true;
+                gate_connection = true;
             }
             else
             {
                 th1 = 0;
                 th1_constrained = false;
             }
-            double L = optimalMPDubinsParams(sol, pathPoints, th0, th1,
+            auto MPResult = optimalMPDubinsParams(sol, pathPoints, th0, th1,
                                              1. / SHELFINO_TURNING_R, 8,
                                              th0_constrained, th1_constrained, map);
-            printf("L={%f}\n", L);
+            double L = MPResult.first;
+            int collisions = MPResult.second;
+            if (gate_connection && !(map.isWithinBorder(map.getGate().source())))
+                collisions--;
+            printf("L=%f, \t%d collisions\n", L, collisions);
             for (size_t i = 0; i < pathPoints.size() - 1; i++)
             {
                 auto PL = sol.at(i).getPolyline(90);

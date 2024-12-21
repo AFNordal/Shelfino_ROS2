@@ -246,6 +246,10 @@ bool Map::isFree(const Point_2 &p) const
     return true;
 }
 
+bool Map::isWithinBorder(const Point_2 &p) const {
+    return border.has_on_bounded_side(p);
+}
+
 bool segment_polygon_intersection(const Segment_2 &s, const Polygon_2 &p)
 {
     auto it = p.edges_begin();

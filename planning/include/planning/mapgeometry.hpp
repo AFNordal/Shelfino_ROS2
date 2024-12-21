@@ -169,6 +169,7 @@ public:
     bool isFree(const Point_2 &p) const;
     bool isFree(const Segment_2 &s) const;
     bool isFree(const Arc_2 &s, const int n_samples) const;
+    bool isWithinBorder(const Point_2 &p) const;
     bool isPOI(const Point_2 &p);
     Ray_2 getShelfino() { return shelfino; }
     Ray_2 getGate() { return gate; }

@@ -1,7 +1,5 @@
 #include "dubins.hpp"
 
-
-
 double arr_sum(std::array<double, 3> s)
 {
     return s.at(0) + s.at(1) + s.at(2);
@@ -12,7 +10,8 @@ std::array<double, 3> arr_mul(const std::array<double, 3> &s, const double &x)
     return std::array<double, 3>{s.at(0) * x, s.at(1) * x, s.at(2) * x};
 }
 
-bool DubinsPathSegment::isFreeIn(const Map &map, const int arc_samples) {
+bool DubinsPathSegment::isFreeIn(const Map &map, const int arc_samples)
+{
     if (t == ARC)
         return map.isFree(arc, arc_samples);
     else
@@ -39,7 +38,7 @@ void SPDubinsPath::setFromParams(DubinsParams p)
                           lengths[2], signs[2], k);
 }
 
-std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, double th0, double th1, double k, const Map& map, const double obstr_cost)
+std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, double th0, double th1, double k, const Map &map, const double obstr_cost)
 {
     double record_l = INFINITY;
     SPDubinsPath best_path;
@@ -54,7 +53,7 @@ std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, doub
         DubinsParams params = std::make_pair(lengths, sign_configs.at(i));
         SPDubinsPath p{p0, p1, th0, th1, k, params};
         double l = lengths.at(0) + lengths.at(1) + lengths.at(2);
-        if (!p.isFreeIn(map)) 
+        if (!p.isFreeIn(map))
             l += obstr_cost;
         if (l < record_l)
         {
@@ -111,19 +110,21 @@ std::vector<Point_2> SPDubinsPath::getPolyline(int res)
     return line;
 }
 
-double optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_paths,
-                             const std::vector<Point_2> &ps,
-                             double th0, double th1, double k, const size_t &angRes,
-                             bool th0_constrained, bool th1_constrained,
-                             const Map &map, const double obstr_cost)
+// Returns path length and # of collisions
+std::pair<double, int> optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_paths,
+                                             const std::vector<Point_2> &ps,
+                                             double th0, double th1, double k, const size_t &angRes,
+                                             bool th0_constrained, bool th1_constrained,
+                                             const Map &map, const double obstr_cost)
 {
     const size_t N = ps.size();
+    assert(N >= 2);
     if (N == 2 && th1_constrained && th0_constrained)
     {
         auto res = optimalDubinsParams(ps.at(0), ps.at(1), th0, th1, k, map, obstr_cost);
         sol_paths = std::vector<SPDubinsPath>{};
         sol_paths.push_back(res.second);
-        return res.first;
+        return std::make_pair(fmod(res.first, obstr_cost), int(res.first / obstr_cost));
     }
     int it_hi = th1_constrained ? N - 3 : N - 2;
     int it_lo = th0_constrained ? 1 : 0;
@@ -213,5 +214,5 @@ double optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_paths,
         if (i < N - 2)
             best_h = ang_idx_tracker.at(i).at(best_h);
     }
-    return total_length;
+    return std::make_pair(fmod(total_length, obstr_cost), int(total_length / obstr_cost));
 }
