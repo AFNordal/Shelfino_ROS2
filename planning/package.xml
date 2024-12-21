@@ -8,6 +8,8 @@
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>my_robot_interfaces</depend>
+  
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
@@ -16,6 +18,9 @@
   <depend>std_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>obstacles_msgs</depend>
+  <depend>interfaces</depend>
+
+  <exec_depend>rosidl_default_runtime</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

@@ -1,5 +1,7 @@
 #include "roadmap_gen.hpp"
 
+
+
 RoadmapGenerator::RoadmapGenerator()
     : Node("roadmap_gen")
 {
@@ -20,7 +22,45 @@ RoadmapGenerator::RoadmapGenerator()
         "/shelfino/robot_description", TL_qos, std::bind(&RoadmapGenerator::shelfinoDescr_callback, this, _1));
     gateSubscription = this->create_subscription<geometry_msgs::msg::PoseArray>(
         "/gates", TL_qos, std::bind(&RoadmapGenerator::gate_callback, this, _1));
+    graph_publisher_ = this->create_publisher<interfaces::msg::Graph>("/graph_topic", 10);
 }
+
+
+//Convert to message
+void RoadmapGenerator::sendGraph(Graph &graph) {
+    
+    printf("Here1");
+    auto graph_msg = interfaces::msg::Graph(); 
+
+    // Set the number of nodes
+    graph_msg.num_nodes = map.getVictims().size()+2;
+    int num_nodes = map.getVictims().size()+2;
+    // Set the profits for each node
+    graph_msg.profits.push_back(0);//first node is init_pos
+    for (const auto& victim : map.getVictims()) {
+        graph_msg.profits.push_back(victim.weight());   
+    }
+    graph_msg.profits.push_back(0);//last node is gate
+    
+    // Flatten the adjacency matrix for travel distances
+    
+    for (size_t i = 0; i < num_nodes; i++) {
+        for (size_t j = 0; j < num_nodes; j++) {
+            graph_msg.travel_distance.push_back(3.2);
+        }
+    }
+    
+    RCLCPP_INFO(this->get_logger(), "Publishing graph");
+    graph_publisher_->publish(graph_msg);
+    /*
+    auto message = interfaces::msg::Graph(); 
+    message.num_nodes = 32;
+    message.profits = {1,2,3};
+    message.travel_distance = {1,2,3};
+   graph_publisher_->publish(message);
+   */
+}
+
 
 void RoadmapGenerator::border_callback(const geometry_msgs::msg::PolygonStamped::SharedPtr msg)
 {
@@ -83,7 +123,7 @@ void RoadmapGenerator::dummy_border()
 void RoadmapGenerator::obstacles_callback(const obstacles_msgs::msg::ObstacleArrayMsg::SharedPtr msg)
 {
     // mtx.lock();
-    RCLCPP_INFO(this->get_logger(), "Received %ld obstacles", msg->obstacles.size());
+    RCLCPP_INFO(this->get_logger(), "post here");
     std::vector<Obstacle> obstacles;
     for (auto o : msg->obstacles)
     {
@@ -285,6 +325,8 @@ void RoadmapGenerator::dummy_gate()
     }
 }
 
+
+
 void RoadmapGenerator::on_map_complete()
 {
     printf("Received all map ingredients\n");
@@ -320,6 +362,9 @@ void RoadmapGenerator::on_map_complete()
     }
     printf("inserted verteces\n");
 
+    
+    
+
     map.display();
 
     for (auto &q : *G.getVerteces())
@@ -347,7 +392,9 @@ void RoadmapGenerator::on_map_complete()
             }
         }
     }
+    
     printf("inserted edges\n");
+
     for (size_t i=0; i<POIs.size(); i++) {
         for (size_t j=i+1; j<POIs.size(); j++) {
 
@@ -360,13 +407,16 @@ void RoadmapGenerator::on_map_complete()
 
         } 
     }
+    sendGraph(G);
+
+
+
     for (auto e : *G.getEdges())
     {
         draw_segment(e->getSegment(), "k", 0.5);
     }
-
-    delete[] samples;
     plt_show();
+    delete[] samples;
 }
 
 int main(int argc, char *argv[])

@@ -14,6 +14,7 @@
 #include "planning/graphs.hpp"
 
 #include "hammersley/hammersley.hpp"
+#include "interfaces/msg/graph.hpp"
 
 #include <mutex>
 #define KNN_K 4
@@ -32,6 +33,7 @@ public:
     void dummy_initPose();
     void dummy_shelfinoDescr();
     void dummy_gate();
+    void sendGraph(Graph &graph);
 
 private:
     void on_map_complete();
@@ -45,13 +47,16 @@ private:
     void initPose_callback(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
     void shelfinoDescr_callback(std_msgs::msg::String::SharedPtr msg);
     void gate_callback(geometry_msgs::msg::PoseArray::SharedPtr msg);
-
+    
     rclcpp::Subscription<geometry_msgs::msg::PolygonStamped>::SharedPtr borderSubscription;
     rclcpp::Subscription<obstacles_msgs::msg::ObstacleArrayMsg>::SharedPtr obstaclesSubscription;
     rclcpp::Subscription<obstacles_msgs::msg::ObstacleArrayMsg>::SharedPtr victimsSubscription;
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initPoseSubscription;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr shelfinoDescrSubscription;
     rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr gateSubscription;
+    rclcpp::Publisher<interfaces::msg::Graph>::SharedPtr graph_publisher_;
+
+
 
     bool border_received, obstacles_received, victims_received, initPose_received, shelfinoDescr_received, gate_received = false;
 
