@@ -218,9 +218,9 @@ void RoadmapGenerator::gate_callback(geometry_msgs::msg::PoseArray::SharedPtr ms
     Ray_2 CGALPose = Ray_2(Point_2(pos.x, pos.y), dir);
     map.setGatePose(CGALPose);
 
-    initPose_received = true; // WORKAROUND
-    Ray_2 dummyShelfino{Point_2{0, 0}, Direction_2{1, 0}};
-    map.setShelfinoInitPose(dummyShelfino);
+    // initPose_received = true; // WORKAROUND
+    // Ray_2 dummyShelfino{Point_2{0, 0}, Direction_2{1, 0}};
+    // map.setShelfinoInitPose(dummyShelfino);
 
     gate_received = true;
     if (received_all())
@@ -375,7 +375,8 @@ void RoadmapGenerator::minimal_clearance_graph(Graph &G, const std::vector<share
                     {
                         G.connect(addedVertices.at(i), addedVertices.at(j),
                                   std::make_shared<SegmentEdge>(Segment_2{*addedVertices.at(i), *addedVertices.at(j)}));
-                        // draw_segment(seg, "orange");
+                        // draw_segment(Segment_2{*addedVertices.at(i), *addedVertices.at(j)}, "orange");
+                        // draw_segment(seg, "red");
                     }
                 }
             }
@@ -509,7 +510,7 @@ void RoadmapGenerator::paths_from_roadmap()
                 th1_constrained = false;
             }
             auto MPResult = optimalMPDubinsParams(sol, pathPoints, th0, th1,
-                                             1. / SHELFINO_TURNING_R, 8,
+                                             1. / SHELFINO_TURNING_R, 16,
                                              th0_constrained, th1_constrained, map);
             double L = MPResult.first;
             int collisions = MPResult.second;

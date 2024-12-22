@@ -4,7 +4,7 @@
     dx: 20.0
     dy: 20.0
     init_names:
-    - shelfino1
+    - shelfino
     init_rand:
     - false
     init_x:
@@ -26,7 +26,7 @@
 /**/send_gates:
   ros__parameters:
     x:
-    - 0
+    - 0.0
     y:
     - -9.4
     yaw:

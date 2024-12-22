@@ -4,7 +4,7 @@
     dx: 10.0
     dy: 20.0
     init_names:
-    - shelfino1
+    - shelfino
     init_rand:
     - false
     init_x:

@@ -4,7 +4,7 @@
 #include "dubins_solvers.hpp"
 #include "mapgeometry.hpp"
 
-#define ARC_COLLISION_SAMPLES 3
+#define ARC_COLLISION_SAMPLES 10
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef K::Point_2 Point_2;

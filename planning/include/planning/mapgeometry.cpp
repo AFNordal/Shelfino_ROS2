@@ -445,9 +445,34 @@ void Map::offsetAllPolys()
 
 int getVertexIndexOffset(Polygon_2 &p1, Polygon_2 &p2)
 {
-    int r1 = distance(p1.begin(), p1.right_vertex());
-    int r2 = distance(p2.begin(), p2.right_vertex());
-    return r1 - r2;
+    // std::map<int, int> votes;
+    // std::array<int, 4> dists;
+    // int N = p1.size();
+    // dists.at(0) = distance(p1.begin(), p1.top_vertex()) - distance(p2.begin(), p2.top_vertex());
+    // dists.at(1) = distance(p1.begin(), p1.right_vertex()) - distance(p2.begin(), p2.right_vertex());
+    // dists.at(2) = distance(p1.begin(), p1.left_vertex()) - distance(p2.begin(), p1.left_vertex());
+    // dists.at(3) = distance(p1.begin(), p1.bottom_vertex()) - distance(p2.begin(), p2.bottom_vertex());
+    // for (int d: dists) {
+    //     int d_mod = (d%N+N)%N;
+    //     if (votes.count(d_mod))
+    //         votes[d_mod]++;
+    //     else
+    //         votes[d_mod] = 1;
+    // }
+    // int record = 0;
+    // int res = 0;
+    // for (auto it = votes.begin(); it != votes.end(); it++) {
+    //     if (it->second > record) {
+    //         record = it->second;
+    //         res = it->first;
+    //     }
+    // }
+    // return dists.at(0);
+    return distance(p1.begin(), p1.right_vertex()) - distance(p2.begin(), p2.right_vertex());
+}
+
+int mod(int a, int b) {
+    return (a%b+b)%b;
 }
 
 std::vector<Point_2> Map::getReflexVertices(std::vector<Point_2> &offsetRVs, std::vector<double> &inboundAngs, std::vector<double> &outboundAngs)
@@ -462,15 +487,15 @@ std::vector<Point_2> Map::getReflexVertices(std::vector<Point_2> &offsetRVs, std
     for (size_t i = 0; i < n; i++)
     {
         auto p = border.edge(i).to_vector();
-        auto q = border.edge((i + 1) % n).to_vector();
+        auto q = border.edge(mod(i + 1, n)).to_vector();
         if (p.x() * q.y() - p.y() * q.x() < 0)
         {
             double inAng = dir2ang(q.direction());
             double outAng = dir2ang(p.direction());
             inboundAngs.push_back(inAng);
             outboundAngs.push_back(outAng);
-            rv.push_back(border.vertex((i + 1) % n));
-            offsetRVs.push_back(offsetBorder.vertex((-borderIdxOffset + i + 1) % n));
+            rv.push_back(border.vertex(mod(i + 1, n)));
+            offsetRVs.push_back(offsetBorder.vertex(mod(-borderIdxOffset + i + 1, n)));
         }
     }
     for (auto &o : obstacles)
@@ -482,15 +507,15 @@ std::vector<Point_2> Map::getReflexVertices(std::vector<Point_2> &offsetRVs, std
         for (size_t i = 0; i < n; i++)
         {
             auto p = poly.edge(i).to_vector();
-            auto q = poly.edge((i + 1) % n).to_vector();
+            auto q = poly.edge(mod(i + 1, n)).to_vector();
             if (p.x() * q.y() - p.y() * q.x() > 0)
             {
                 double inAng = dir2ang(p.direction());
                 double outAng = dir2ang(q.direction());
                 inboundAngs.push_back(inAng);
                 outboundAngs.push_back(outAng);
-                rv.push_back(poly.vertex((i + 1) % n));
-                offsetRVs.push_back(offsetPoly.vertex((-idxOffset + i + 1) % n));
+                rv.push_back(poly.vertex(mod(i + 1, n)));
+                offsetRVs.push_back(offsetPoly.vertex(mod(-idxOffset + i + 1, n)));
             }
         }
     }
