@@ -26,6 +26,34 @@ RoadmapGenerator::RoadmapGenerator()
         "/shelfino/robot_description", TL_qos, std::bind(&RoadmapGenerator::shelfinoDescr_callback, this, _1));
     gateSubscription = this->create_subscription<geometry_msgs::msg::PoseArray>(
         "/gates", TL_qos, std::bind(&RoadmapGenerator::gate_callback, this, _1));
+    graph_publisher_ = this->create_publisher<interfaces::msg::Graph>("/graph_topic", 10);
+}
+
+//Convert to message
+void RoadmapGenerator::sendGraph(Graph &graph) {
+    
+    printf("Here1");
+    auto graph_msg = interfaces::msg::Graph(); 
+
+    // Set the number of nodes
+    graph_msg.num_nodes = map.getVictims().size()+2;
+    int num_nodes = map.getVictims().size()+2;
+    // Set the profits for each node
+    graph_msg.profits.push_back(0);//first node is init_pos
+    for (const auto& victim : map.getVictims()) {
+        graph_msg.profits.push_back(victim.weight());   
+    }
+    graph_msg.profits.push_back(0);//last node is gate
+    
+    // Flatten the adjacency matrix for travel distances
+    for (size_t i = 0; i < num_nodes; i++) {
+        for (size_t j = 0; j < num_nodes; j++) {
+            graph_msg.travel_distance.push_back(3.2);
+        }
+    }
+    
+    RCLCPP_INFO(this->get_logger(), "Publishing graph");
+    graph_publisher_->publish(graph_msg);
 }
 
 void RoadmapGenerator::border_callback(const geometry_msgs::msg::PolygonStamped::SharedPtr msg)
@@ -440,6 +468,7 @@ void RoadmapGenerator::paths_from_roadmap()
         G.addVertex(victimVertex);
         POIs.push_back(victimVertex);
     }
+    sendGraph(G);
     if (strategy == COMBINATORIAL)
         minimal_clearance_graph(G, POIs);
     else
@@ -540,6 +569,7 @@ void RoadmapGenerator::on_map_complete()
     printf("Map polygons offset\n");
     map.display();
     paths_from_roadmap();
+
     // minimal_clearance_graph();
     plt_show();
 }
