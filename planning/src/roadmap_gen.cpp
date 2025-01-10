@@ -1,5 +1,5 @@
 #include "roadmap_gen.hpp"
-"dubins+task"
+
 RoadmapGenerator::RoadmapGenerator()
     : Node("roadmap_gen")
 {
