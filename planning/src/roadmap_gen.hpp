@@ -41,7 +41,7 @@ public:
     void dummy_initPose();
     void dummy_shelfinoDescr();
     void dummy_gate();
-    void sendGraph(Graph &graph);
+    void sendGraph(const std::vector<std::vector<double>> &distMat);
 
 private:
     void on_map_complete();

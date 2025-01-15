@@ -1,0 +1,4 @@
+source install/setup.bash
+ros2 launch projects victims.launch.py use_rviz:=false spawn_shelfino:=true
+ros2 launch projects victims.launch.py use_rviz:=false spawn_shelfino:=true use_gui:=false generate_new_map_config:=false gen_map_params_file:=map_pkg/config/demos/victims/victims4.yaml
+ros2 launch planning planning.launch.py strategy:=combinatorial

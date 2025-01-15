@@ -30,7 +30,7 @@ RoadmapGenerator::RoadmapGenerator()
 }
 
 //Convert to message
-void RoadmapGenerator::sendGraph(Graph &graph) {
+void RoadmapGenerator::sendGraph(const std::vector<std::vector<double>> &distMat) {
     
     printf("Here1");
     auto graph_msg = interfaces::msg::Graph(); 
@@ -48,7 +48,7 @@ void RoadmapGenerator::sendGraph(Graph &graph) {
     // Flatten the adjacency matrix for travel distances
     for (size_t i = 0; i < num_nodes; i++) {
         for (size_t j = 0; j < num_nodes; j++) {
-            graph_msg.travel_distance.push_back(3.2);
+            graph_msg.travel_distance.push_back(distMat.at(i).at(j));
         }
     }
     
@@ -457,9 +457,6 @@ void RoadmapGenerator::paths_from_roadmap()
     // Initialize PRM graph and insert POI vertices
     Graph G;
     std::vector<shared_ptr<Vertex>> POIs;
-    std::shared_ptr<Vertex> gateVertex = std::make_shared<Vertex>(map.getGate().source(), map.getGateProjection());
-    G.addVertex(gateVertex);
-    POIs.push_back(gateVertex);
     std::shared_ptr<Vertex> shelfinoVertex = std::make_shared<Vertex>(map.getShelfino().source());
     G.addVertex(shelfinoVertex);
     POIs.push_back(shelfinoVertex);
@@ -469,7 +466,12 @@ void RoadmapGenerator::paths_from_roadmap()
         G.addVertex(victimVertex);
         POIs.push_back(victimVertex);
     }
-    sendGraph(G);
+    std::shared_ptr<Vertex> gateVertex = std::make_shared<Vertex>(map.getGate().source(), map.getGateProjection());
+    G.addVertex(gateVertex);
+    POIs.push_back(gateVertex);
+    //Distance matrix for planner
+    std::vector<std::vector<double>> distMat(POIs.size(), std::vector<double>(POIs.size()));
+
     if (strategy == COMBINATORIAL)
         minimal_clearance_graph(G, POIs);
     else
@@ -545,6 +547,11 @@ void RoadmapGenerator::paths_from_roadmap()
             int collisions = MPResult.second;
             if (gate_connection && !(map.isWithinBorder(map.getGate().source())))
                 collisions--;
+            if (collisions > 0) 
+                L = INFINITY;
+            distMat.at(i).at(j) = L;
+            distMat.at(j).at(i) = L;
+
             printf("L=%f, \t%d collisions\n", L, collisions);
             for (size_t i = 0; i < pathPoints.size() - 1; i++)
             {
@@ -557,6 +564,7 @@ void RoadmapGenerator::paths_from_roadmap()
         }
     }
     printf("Done\n");
+    sendGraph(distMat);
     // for (auto e : *G.getEdges())
     // {
     //     draw_segment(e->getSegment(), "k", 0.2);
