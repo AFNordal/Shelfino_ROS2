@@ -35,7 +35,7 @@ void TaskPlanner::graphCallback(const interfaces::msg::Graph::SharedPtr msg)
     calculatePath();
 }
 
-void TaskPlanner::calculatePath() { //dynamic programming by gpt
+void TaskPlanner::calculatePath() { 
     // Ensure the travel distances matrix is properly sized
     if (travel_distances.size() != num_nodes * num_nodes) {
         std::cerr << "Error: Travel distances matrix size is incorrect.\n";
