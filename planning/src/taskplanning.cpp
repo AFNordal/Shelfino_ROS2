@@ -1,16 +1,83 @@
-
-#include "taskplanning.hpp"
-#include "rclcpp/rclcpp.hpp"
-#include "interfaces/msg/graph.hpp"  // Include the custom message header
-#include <vector>
 #include "taskplanning.hpp"
 
 TaskPlanner::TaskPlanner() : Node("task_planner")
 {
-    subscription_ = this->create_subscription<interfaces::msg::Graph>(
+    graph_subscription = this->create_subscription<interfaces::msg::Graph>(
         "/graph_topic", 10,
         std::bind(&TaskPlanner::graphCallback, this, std::placeholders::_1));
+    result_publisher = this->create_publisher<interfaces::msg::Result>("/resultTP_topic", 10);
     RCLCPP_INFO(this->get_logger(), "Task Planner node started.");
+}
+
+
+float TaskPlanner::remainingDistance(int currentNode) {
+    return travel_distances[currentNode * num_nodes + (num_nodes - 1)];
+}
+
+//recursive function to explore all possible paths
+void TaskPlanner::calculatePath(int currentNode, float currentDistance, int currentProfit,
+                                 std::vector<bool>& visited, int& maxProfit, std::vector<int>& pathVisited, std::vector<int>& bestPath, int& shortestPath) {
+    printPath(pathVisited, currentProfit);
+    // Before exploring any path, check if it's still possible to reach the last node within tmax
+    float remaining = remainingDistance(currentNode);
+    if (currentDistance + remaining > tmax) {
+        return; // If not possible, quit exploring this path
+    }
+
+    if (currentNode == num_nodes - 1) {
+        // Update the maximum profit and shortest path if it is better than what we have previously found
+        if ((currentProfit > maxProfit && currentProfit > 0)||(currentProfit == maxProfit && currentDistance < shortestPath)){
+            maxProfit = currentProfit;
+            shortestPath = currentDistance;
+            bestPath.clear();
+            for (int i = 0; i < pathVisited.size(); i++)
+            {
+                bestPath.push_back(static_cast<int>(pathVisited[i]));
+            }
+            std::cout << "length: " << shortestPath << std::endl;
+            printPath(bestPath, currentProfit);  // Print the path and profit when maxProfit is updated
+        }
+        return;
+    }
+    for (int nextNode = 1; nextNode < num_nodes; ++nextNode) {
+        if (!(nextNode == currentNode) && !(visited[nextNode])){
+            float distance = travel_distances[currentNode * num_nodes + nextNode];
+            int profit = profits[nextNode];
+
+            if (distance > 0) { 
+                visited[nextNode] = true;
+                pathVisited.push_back(nextNode);
+                calculatePath(nextNode, currentDistance + distance, currentProfit + profit,
+                              visited, maxProfit, pathVisited, bestPath, shortestPath);    
+            }
+        visited[nextNode] = false;
+        pathVisited.pop_back();
+        
+
+        }
+    }
+}
+void TaskPlanner::printPath(const std::vector<int>& pathVisited, int currentProfit) {
+    std::cout << "Path visited: ";
+    for (int node : pathVisited) {
+        std::cout << node << " -> ";
+    }
+    std::cout << "Profit: " << currentProfit << std::endl;
+}
+
+std::pair<int, std::vector<int>> TaskPlanner::findMaxProfit() {
+    int maxProfit = 0;  
+    std::vector<bool> visited(num_nodes, false);
+    std::vector<int> bestPath; 
+    int shortestPath;
+    std::vector<int> pathVisited;
+
+    // Start from the first node
+    visited[0] = true;
+    pathVisited.push_back(0);
+    calculatePath(0, 0.0f, profits[0], visited, maxProfit, pathVisited, bestPath, shortestPath);
+    
+    return {maxProfit, bestPath};
 }
 
 void TaskPlanner::graphCallback(const interfaces::msg::Graph::SharedPtr msg)
@@ -32,83 +99,28 @@ void TaskPlanner::graphCallback(const interfaces::msg::Graph::SharedPtr msg)
         RCLCPP_INFO(this->get_logger(), "  - %d", profit);
     }
 
-    calculatePath();
-}
+    auto result = this->findMaxProfit();
 
-void TaskPlanner::calculatePath() { //dynamic programming by gpt
-    // Ensure the travel distances matrix is properly sized
-    if (travel_distances.size() != num_nodes * num_nodes) {
-        std::cerr << "Error: Travel distances matrix size is incorrect.\n";
-        return;
-    }
+    int maxProfit = result.first; 
+    std::vector<int> bestPath = result.second;  
 
-    // DP table to store the maximum profit at each node within tmax time
-    std::vector<std::vector<int>> dp(num_nodes, std::vector<int>(tmax, -1)); // tmax time slots
-    // Path tracking table to reconstruct the best path
-    std::vector<std::vector<int>> prev(num_nodes, std::vector<int>(tmax, -1));
-
-    // Initialize the starting node
-    dp[0][0] = profits[0];
-
-    // Fill the DP table
-    for (int time = 0; time < tmax; ++time) {
-        for (int u = 0; u < num_nodes; ++u) {
-            if (dp[u][time] == -1) continue; // Skip unreachable states
-            for (int v = 0; v < num_nodes; ++v) {
-                if (u == v) continue; // Skip self-loops
-                int travel_time = static_cast<int>(travel_distances[u * num_nodes + v]);
-                if (time + travel_time < tmax) { // Total time must be strictly less than tmax
-                    int new_profit = dp[u][time] + profits[v];
-                    if (new_profit > dp[v][time + travel_time]) {
-                        dp[v][time + travel_time] = new_profit;
-                        prev[v][time + travel_time] = u; // Track the path
-                    }
-                }
-            }
-        }
-    }
-
-    // Find the maximum profit at the last node within tmax - 1 time
-    int max_profit = -1;
-    int best_time = -1;
-    for (int time = 0; time < tmax; ++time) {
-        if (dp[num_nodes - 1][time] > max_profit) {
-            max_profit = dp[num_nodes - 1][time];
-            best_time = time;
-        }
-    }
-
-    // Output the result
-    if (max_profit == -1) {
-        std::cout << "No valid path found within time constraints.\n";
-        return;
-    }
-
-    std::cout << "Maximum profit: " << max_profit << "\n";
-
-    // Reconstruct the path
-    std::vector<int> path;
-    int current_node = num_nodes - 1;
-    int current_time = best_time;
-
-    while (current_node != -1) {
-        path.push_back(current_node);
-        current_node = prev[current_node][current_time];
-        if (current_node != -1) {
-            current_time -= static_cast<int>(travel_distances[current_node * num_nodes + path.back()]);
-        }
-    }
-
-    std::reverse(path.begin(), path.end());
-
+    
+    /*std::cout << "Maximum Profit within max distance (" << tmax << "): " << maxProfit << "\n";
     std::cout << "Best path: ";
-    for (int node : path) {
-        std::cout << node << " ";
+    for (int node : bestPath) {
+        std::cout << node << " -> ";
     }
-    std::cout << "\n";
+    std::cout "\n";
+    */
+    auto resultTP_msg = interfaces::msg::Result();
+    for (int i = 0; i < bestPath.size(); i++)
+    {
+        resultTP_msg.nodes_visited.push_back(static_cast<int>(bestPath[i]));
+    }
+    resultTP_msg.profit = maxProfit;
+    RCLCPP_INFO(this->get_logger(), "Publishing resultTP");
+    result_publisher->publish(resultTP_msg);    
 }
-
-
 
 int main(int argc, char **argv)
 {

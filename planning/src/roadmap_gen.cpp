@@ -26,13 +26,14 @@ RoadmapGenerator::RoadmapGenerator()
         "/shelfino/robot_description", TL_qos, std::bind(&RoadmapGenerator::shelfinoDescr_callback, this, _1));
     gateSubscription = this->create_subscription<geometry_msgs::msg::PoseArray>(
         "/gates", TL_qos, std::bind(&RoadmapGenerator::gate_callback, this, _1));
-    graph_publisher_ = this->create_publisher<interfaces::msg::Graph>("/graph_topic", 10);
+    graphPublisher = this->create_publisher<interfaces::msg::Graph>("/graph_topic", 10);
 }
 
 //Convert to message
 void RoadmapGenerator::sendGraph(const std::vector<std::vector<double>> &distMat) {
     
-    printf("Here1");
+    //printf("Here1");
+    RCLCPP_INFO(this->get_logger(), "SendGraph");
     auto graph_msg = interfaces::msg::Graph(); 
 
     // Set the number of nodes
@@ -53,7 +54,7 @@ void RoadmapGenerator::sendGraph(const std::vector<std::vector<double>> &distMat
     }
     
     RCLCPP_INFO(this->get_logger(), "Publishing graph");
-    graph_publisher_->publish(graph_msg);
+    graphPublisher->publish(graph_msg);
 }
 
 void RoadmapGenerator::border_callback(const geometry_msgs::msg::PolygonStamped::SharedPtr msg)
@@ -246,9 +247,9 @@ void RoadmapGenerator::gate_callback(geometry_msgs::msg::PoseArray::SharedPtr ms
     Ray_2 CGALPose = Ray_2(Point_2(pos.x, pos.y), dir);
     map.setGatePose(CGALPose);
 
-    // initPose_received = true; // WORKAROUND
-    // Ray_2 dummyShelfino{Point_2{0, 0}, Direction_2{1, 0}};
-    // map.setShelfinoInitPose(dummyShelfino);
+    initPose_received = true; // WORKAROUND
+    Ray_2 dummyShelfino{Point_2{0, 0}, Direction_2{1, 0}};
+    map.setShelfinoInitPose(dummyShelfino);
 
     gate_received = true;
     if (received_all())
@@ -564,6 +565,7 @@ void RoadmapGenerator::paths_from_roadmap()
         }
     }
     printf("Done\n");
+    RCLCPP_INFO(this->get_logger(), "Publishing graph");
     sendGraph(distMat);
     // for (auto e : *G.getEdges())
     // {

@@ -16,6 +16,7 @@
 
 #include "hammersley/hammersley.hpp"
 #include "interfaces/msg/graph.hpp"
+#include "interfaces/msg/result.hpp"
 
 #define N_SAMPLES 10000
 #define KNN_K 5
@@ -59,7 +60,7 @@ private:
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initPoseSubscription;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr shelfinoDescrSubscription;
     rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr gateSubscription;
-    rclcpp::Publisher<interfaces::msg::Graph>::SharedPtr graph_publisher_;
+    rclcpp::Publisher<interfaces::msg::Graph>::SharedPtr graphPublisher;
 
 
 
