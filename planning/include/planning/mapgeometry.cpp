@@ -1,6 +1,20 @@
 #include "mapgeometry.hpp"
 
-void plt_show() { plt::show(); }
+void plt_show()
+{
+    plt::ion();
+    plt::show();
+    plt::pause(2);
+}
+
+void plt_draw() {
+    plt::draw();
+    plt::pause(0.1);
+}
+
+void plt_clear() {
+    plt::clf();
+}
 
 void draw_segment(const Segment_2 &s, std::string color, double linewidth)
 {
@@ -246,7 +260,8 @@ bool Map::isFree(const Point_2 &p) const
     return true;
 }
 
-bool Map::isWithinBorder(const Point_2 &p) const {
+bool Map::isWithinBorder(const Point_2 &p) const
+{
     return border.has_on_bounded_side(p);
 }
 
@@ -304,7 +319,7 @@ bool Map::isFree(const Segment_2 &s) const
 
 bool Map::isFree(const Arc_2 &a, const int n_samples) const
 {
-    for (double t = 0; t <= 1; t += 1. / (n_samples-1))
+    for (double t = 0; t <= 1; t += 1. / (n_samples - 1))
     {
         if (!isFree(a.eval(t)))
             return false;
@@ -471,8 +486,9 @@ int getVertexIndexOffset(Polygon_2 &p1, Polygon_2 &p2)
     return distance(p1.begin(), p1.right_vertex()) - distance(p2.begin(), p2.right_vertex());
 }
 
-int mod(int a, int b) {
-    return (a%b+b)%b;
+int mod(int a, int b)
+{
+    return (a % b + b) % b;
 }
 
 std::vector<Point_2> Map::getReflexVertices(std::vector<Point_2> &offsetRVs, std::vector<double> &inboundAngs, std::vector<double> &outboundAngs)

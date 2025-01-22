@@ -27,7 +27,7 @@ RUN pip3 install numpy matplotlib tornado
 RUN pip3 install shapely
 RUN pip3 install thefuck
 
-ENV MPLBACKEND=WebAgg
+ENV MPLBACKEND=TkAgg
 
 # gitconfig
 COPY ssh-keys /root/.ssh

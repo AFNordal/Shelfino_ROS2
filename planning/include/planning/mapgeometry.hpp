@@ -80,6 +80,8 @@ Exact_segment_2 inexact2exact(Segment_2 p);
 Polygon_2 exact2inexact(Exact_polygon_2 p);
 
 void plt_show();
+void plt_draw();
+void plt_clear();
 
 typedef enum
 {

@@ -2,6 +2,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "std_msgs/msg/int32.hpp"
 #include "geometry_msgs/msg/polygon.hpp"
 #include "geometry_msgs/msg/polygon_stamped.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
@@ -53,6 +54,7 @@ private:
     void initPose_callback(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
     void shelfinoDescr_callback(std_msgs::msg::String::SharedPtr msg);
     void gate_callback(geometry_msgs::msg::PoseArray::SharedPtr msg);
+    void TPResult_callback(interfaces::msg::Result::SharedPtr msg);
     
     rclcpp::Subscription<geometry_msgs::msg::PolygonStamped>::SharedPtr borderSubscription;
     rclcpp::Subscription<obstacles_msgs::msg::ObstacleArrayMsg>::SharedPtr obstaclesSubscription;
@@ -61,10 +63,10 @@ private:
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr shelfinoDescrSubscription;
     rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr gateSubscription;
     rclcpp::Publisher<interfaces::msg::Graph>::SharedPtr graphPublisher;
+    rclcpp::Subscription<interfaces::msg::Result>::SharedPtr TPResultSubscription;
 
-
-
-    bool border_received, obstacles_received, victims_received, initPose_received, shelfinoDescr_received, gate_received = false;
+    bool skip_shelfino;
+    bool border_received, obstacles_received, victims_received, initPose_received, shelfinoDescr_received, gate_received, result_received = false;
     roadmapType strategy;
 
     void paths_from_roadmap();
@@ -75,6 +77,8 @@ private:
                        size_t idx0,
                        size_t idx1,
                        const std::list<std::shared_ptr<Vertex>>::iterator &smooth_inserter);
+
+    std::vector<std::vector<std::vector<Point_2>>> pathPointMatrix;
 
     Map map;
     bool received_all()
