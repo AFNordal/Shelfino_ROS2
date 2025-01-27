@@ -37,16 +37,10 @@ class RoadmapGenerator : public rclcpp::Node
 public:
     RoadmapGenerator();
 
-    void dummy_border();
-    void dummy_obstacles();
-    void dummy_victims();
-    void dummy_initPose();
-    void dummy_shelfinoDescr();
-    void dummy_gate();
-    void sendGraph(const std::vector<std::vector<double>> &distMat);
 
 private:
     void on_map_complete();
+    void sendGraph(void);
 
     void border_callback(const geometry_msgs::msg::PolygonStamped::SharedPtr msg);
     void obstacles_callback(obstacles_msgs::msg::ObstacleArrayMsg::SharedPtr msg);
@@ -79,6 +73,7 @@ private:
                        const std::list<std::shared_ptr<Vertex>>::iterator &smooth_inserter);
 
     std::vector<std::vector<std::vector<Point_2>>> pathPointMatrix;
+    std::vector<std::vector<double>> distMatrix;
 
     Map map;
     bool received_all()

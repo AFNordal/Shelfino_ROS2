@@ -62,7 +62,7 @@ std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, doub
         }
     }
     if (record_l == INFINITY)
-        printf("No optimal SP dubins found\n");
+        printf("[WARNING]: No feasible SP dubins found\n");
     return std::make_pair(record_l, best_path);
 }
 
@@ -146,9 +146,12 @@ std::vector<Point_2> SPDubinsPath::getPointApprox(double spacing)
 
 Point_2 DubinsPathSegment::getEndPoint()
 {
-    if (t == SEGMENT) {
+    if (t == SEGMENT)
+    {
         return seg.target();
-    } else {
+    }
+    else
+    {
         return arc.target();
     }
 }
@@ -163,22 +166,25 @@ std::pair<double, int> optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_path
                                              const std::vector<Point_2> &ps,
                                              double th0, double th1, double k, const size_t &angRes,
                                              bool th0_constrained, bool th1_constrained,
-                                             const Map &map, const double obstr_cost)
+                                             const Map &map, std::vector<int> &collisions, const double obstr_cost)
 {
     const size_t N = ps.size();
     assert(N >= 2);
+    collisions = std::vector<int>(N - 1, 0);
     if (N == 2 && th1_constrained && th0_constrained)
     {
         auto res = optimalDubinsParams(ps.at(0), ps.at(1), th0, th1, k, map, obstr_cost);
         sol_paths = std::vector<SPDubinsPath>{};
         sol_paths.push_back(res.second);
-        return std::make_pair(fmod(res.first, obstr_cost), int(res.first / obstr_cost));
+        int n_col = int(res.first / obstr_cost);
+        collisions.at(0) = n_col;
+        return std::make_pair(fmod(res.first, obstr_cost), n_col);
     }
     int it_hi = th1_constrained ? N - 3 : N - 2;
     int it_lo = th0_constrained ? 1 : 0;
     std::vector<std::vector<double>> L(N - 1, std::vector<double>(angRes, 0));
     std::vector<std::vector<size_t>> ang_idx_tracker(it_hi + 1, std::vector<size_t>(angRes, 0));
-    std::vector<std::vector<SPDubinsPath>> sol_tracker(N - 1, std::vector<SPDubinsPath>(angRes, SPDubinsPath()));
+    std::vector<std::vector<std::pair<double, SPDubinsPath>>> sol_tracker(N - 1, std::vector<std::pair<double, SPDubinsPath>>(angRes, std::make_pair(0., SPDubinsPath())));
     if (th1_constrained)
     {
         for (size_t h = 0; h < angRes; h++)
@@ -186,7 +192,7 @@ std::pair<double, int> optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_path
             double ang = h * 2 * M_PI / angRes;
             auto res = optimalDubinsParams(ps.at(N - 2), ps.at(N - 1), ang, th1, k, map, obstr_cost);
             L.at(N - 2).at(h) = res.first;
-            sol_tracker.at(N - 2).at(h) = res.second;
+            sol_tracker.at(N - 2).at(h) = res;
         }
     }
     for (int i = it_hi; i >= it_lo; i--)
@@ -209,7 +215,7 @@ std::pair<double, int> optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_path
                 {
                     shortest = l;
                     best_h2 = h2;
-                    sol_tracker.at(i).at(h1) = res.second;
+                    sol_tracker.at(i).at(h1) = res;
                 }
             }
             ang_idx_tracker.at(i).at(h1) = best_h2;
@@ -233,7 +239,7 @@ std::pair<double, int> optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_path
             {
                 shortest = l;
                 best_h = h;
-                sol_tracker.at(0).at(h) = res.second;
+                sol_tracker.at(0).at(h) = res;
             }
         }
     }
@@ -241,7 +247,9 @@ std::pair<double, int> optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_path
     double total_length;
     if (th0_constrained)
     {
-        sol_paths.at(0) = sol_tracker.at(0).at(best_h);
+        sol_paths.at(0) = sol_tracker.at(0).at(best_h).second;
+        int n_col = int(sol_tracker.at(0).at(best_h).first / obstr_cost);
+        collisions.at(0) = n_col;
     }
     else
     {
@@ -258,7 +266,11 @@ std::pair<double, int> optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_path
     for (size_t i = it_lo; i < it_hi + 2; i++)
     {
         if (i < N - 1)
-            sol_paths.at(i) = sol_tracker.at(i).at(best_h);
+        {
+            sol_paths.at(i) = sol_tracker.at(i).at(best_h).second;
+            int n_col = int(sol_tracker.at(i).at(best_h).first / obstr_cost);
+            collisions.at(i) = n_col;
+        }
         if (i < N - 2)
             best_h = ang_idx_tracker.at(i).at(best_h);
     }

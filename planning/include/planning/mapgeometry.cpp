@@ -57,9 +57,7 @@ void draw_arrows(const std::vector<Point_2> &points, const std::vector<double> &
         double y = points.at(i).y();
         double dx = std::cos(angles.at(i));
         double dy = std::sin(angles.at(i));
-        printf("%f, %f, %f, %f\n", x, y, dx, dy);
         plt::arrow(x, y, dx, dy, color);
-        // plt::arrow(1, 1, 1, 1);
     }
 }
 
@@ -426,7 +424,7 @@ void Map::offsetAllPolys()
             Exact_polygon_with_holes_2 res;
             if (CGAL::join(inexact2exact(p1), inexact2exact(p2), res))
             {
-                printf("Joined overlapping obstacles after offset\n");
+                printf("[INFO]: Joined overlapping obstacles after offset\n");
                 Polygon_2 joined = exact2inexact(res.outer_boundary());
                 obstacles.at(i) = Obstacle{joined};
                 obstacles.erase(obstacles.begin() + j);
@@ -441,7 +439,7 @@ void Map::offsetAllPolys()
         std::list<Exact_polygon_with_holes_2> res;
         if (polygon_polygon_edge_intersection(p, border))
         {
-            printf("Obstacle border collision detected\n");
+            printf("[INFO]: Obstacle border collision detected\n");
             CGAL::difference(inexact2exact(border), inexact2exact(p), std::back_inserter(res));
             assert(res.size() == 1);
             border = exact2inexact(res.front().outer_boundary());
@@ -475,8 +473,6 @@ void Map::offsetAllPolys()
         auto offset = gate.opposite().to_vector();
         offset = 0.001 * offset / std::sqrt(offset.squared_length());
         gateProjection = closest + offset;
-        // draw_points({closest}, "yellow", 10);
-        // printf("%f, %f\n", closest.x(), closest.y());
     }
 }
 
@@ -585,7 +581,7 @@ std::vector<Point_2> Map::visibilityQuery(Point_2 queryPoint)
             }
         }
         if (!face_found)
-            printf("WARNING: Could not find face for visibility queries\n");
+            printf("[WARNING]: Could not find face for visibility queries\n");
 
         visibilityCacheComputed = true;
     }

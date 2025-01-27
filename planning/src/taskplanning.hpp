@@ -30,7 +30,7 @@ private:
     void onAllReceived();
     void calculatePath();
     float remainingDistance(int currentNode);
-    void printPath(const std::vector<int>& pathVisited, int currentProfit);  // Helper function to print the path
+    void printPath(const std::vector<int>& pathVisited, int currentProfit, double currentDistance);  // Helper function to print the path
     
 
     rclcpp::Subscription<interfaces::msg::Graph>::SharedPtr graph_subscription;

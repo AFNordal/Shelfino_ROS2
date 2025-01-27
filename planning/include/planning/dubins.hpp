@@ -112,7 +112,7 @@ std::pair<double, int> optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_path
                              const std::vector<Point_2> &ps,
                              double th0, double th1, double k, const size_t &angRes,
                              bool th0_constrained, bool th1_constrained,
-                             const Map &map, const double obstr_cost=1000);
+                             const Map &map, std::vector<int> &collisions, const double obstr_cost=1000);
 
 class MPDubinsPath
 {
