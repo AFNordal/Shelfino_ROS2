@@ -62,7 +62,9 @@ public:
     Point_2 getP0() { return (t == ARC) ? arc.source() : seg[0]; }
     Point_2 getP1() { return (t == ARC) ? arc.target() : seg[1]; }
     std::vector<Point_2> getPolyline(int res);
+    std::vector<Point_2> getPointApprox(double spacing);
     DubinsPathSegmentType getType() { return t; }
+    Point_2 getEndPoint();
     Arc_2 getArc() { return arc; }
     Segment_2 getSegment() { return seg; }
     bool isFreeIn(const Map &map, const int arc_samples);
@@ -78,15 +80,6 @@ private:
 
 public:
     SPDubinsPath() {}
-    // SPDubinsPath(Point_2 _p0, Point_2 _p1, double _th0, double _th1, double _k)
-    // {
-    //     p0 = _p0;
-    //     p1 = _p1;
-    //     th0 = _th0;
-    //     th1 = _th1;
-    //     k = _k;
-    //     createOptimal();
-    // }
     SPDubinsPath(Point_2 _p0, Point_2 _p1, double _th0, double _th1, double _k, DubinsParams p)
     {
         p0 = _p0;
@@ -98,8 +91,9 @@ public:
     }
 
     void setFromParams(DubinsParams p);
-    // void createOptimal();
     std::vector<Point_2> getPolyline(int res);
+    std::vector<Point_2> getPointApprox(double spacing);
+    Point_2 getEndPoint();
     std::vector<DubinsPathSegment> getSegments() { return segments; }
     bool isFreeIn(const Map &map)
     {

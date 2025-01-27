@@ -50,7 +50,7 @@ void TaskPlanner::calculatePath(int currentNode, float currentDistance, int curr
             maxProfit = currentProfit;
             shortestPath = currentDistance;
             bestPath.clear();
-            for (int i = 0; i < pathVisited.size(); i++)
+            for (size_t i = 0; i < pathVisited.size(); i++)
             {
                 bestPath.push_back(static_cast<int>(pathVisited[i]));
             }
@@ -126,7 +126,7 @@ void TaskPlanner::onAllReceived() {
     std::vector<int> bestPath = result.second;
 
     auto resultTP_msg = interfaces::msg::Result();
-    for (int i = 0; i < bestPath.size(); i++)
+    for (size_t i = 0; i < bestPath.size(); i++)
     {
         resultTP_msg.nodes_visited.push_back(static_cast<int>(bestPath[i]));
     }

@@ -1,15 +1,15 @@
 #include "mapgeometry.hpp"
 
-void plt_show()
+void plt_show(double pause_t)
 {
     plt::ion();
     plt::show();
-    plt::pause(2);
+    plt::pause(pause_t);
 }
 
 void plt_draw() {
     plt::draw();
-    plt::pause(0.1);
+    plt::pause(0.2);
 }
 
 void plt_clear() {
@@ -92,16 +92,36 @@ bool Obstacle::contains(const Point_2 &p)
 
 void Map::display()
 {
+    draw_border();
+    draw_obstacles();
+    draw_victims();
+    draw_gate();
+    draw_shelfino();
+}
+
+void Map::draw_border() {
     draw_poly(border, "k");
+    plt::set_aspect_equal();
+}
+
+void Map::draw_obstacles() {
     for (auto o : obstacles)
     {
         draw_poly(o.getPoly(10), "m", true);
     }
+    plt::set_aspect_equal();
+}
+
+void Map::draw_victims() {
     for (auto v : victims)
     {
         draw_circle(v.point(), 0.5, "y", true);
         plt::text(v.point().x(), v.point().y(), std::to_string(int(v.weight())));
     }
+    plt::set_aspect_equal();
+}
+
+void Map::draw_gate() {
     auto src = gate.source();
     auto diff = gate.to_vector();
     auto perp = diff.perpendicular(CGAL::POSITIVE);
@@ -109,12 +129,14 @@ void Map::display()
               {(src + perp).y(), (src - perp).y()},
               {{"color", "r"}});
     plt::arrow(src.x(), src.y(), diff.x(), diff.y());
+    plt::set_aspect_equal();
+}
 
-    src = shelfino.source();
-    diff = shelfino.to_vector();
+void Map::draw_shelfino() {
+    auto src = shelfino.source();
+    auto diff = shelfino.to_vector();
     draw_circle(src, shelfino_r, "g", true);
     plt::arrow(src.x(), src.y(), diff.x(), diff.y());
-
     plt::set_aspect_equal();
 }
 

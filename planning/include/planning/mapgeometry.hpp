@@ -79,7 +79,7 @@ Exact_polygon_2 inexact2exact(Polygon_2 p);
 Exact_segment_2 inexact2exact(Segment_2 p);
 Polygon_2 exact2inexact(Exact_polygon_2 p);
 
-void plt_show();
+void plt_show(double pause_t=10000);
 void plt_draw();
 void plt_clear();
 
@@ -167,6 +167,11 @@ public:
     void setGatePose(Ray_2 &pose) { gate = pose; gateProjection = pose.source(); };
     void setShelfinoRadius(double r) { shelfino_r = r; }
     void display();
+    void draw_border();
+    void draw_obstacles();
+    void draw_victims();
+    void draw_gate();
+    void draw_shelfino();
     Bbox_2 getBbox();
     bool isFree(const Point_2 &p) const;
     bool isFree(const Segment_2 &s) const;

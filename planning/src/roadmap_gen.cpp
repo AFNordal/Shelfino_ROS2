@@ -15,7 +15,8 @@ RoadmapGenerator::RoadmapGenerator()
     {
         strategy = PROBABILISTIC;
     }
-
+    draw_points({}, "r");
+    plt_show(4);
     map = Map();
     rclcpp::QoS TL_qos(rclcpp::KeepLast(1));
     TL_qos.durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
@@ -50,16 +51,16 @@ void RoadmapGenerator::TPResult_callback(interfaces::msg::Result::SharedPtr msg)
     std::vector<Point_2> pathPoints{};
     pathPoints.push_back(map.getShelfino().source());
     auto POIs = map.getPOIs();
-    for (size_t i = 0; i < msg->nodes_visited.size()-1; i++)
+    for (size_t i = 0; i < msg->nodes_visited.size() - 1; i++)
     {
         int nodeIdx = msg->nodes_visited.at(i);
-        int nextNodeIdx = msg->nodes_visited.at(i+1);
+        int nextNodeIdx = msg->nodes_visited.at(i + 1);
         auto segPathPoints = pathPointMatrix.at(nextNodeIdx).at(nodeIdx);
         for (size_t j = 1; j < segPathPoints.size(); j++)
             pathPoints.push_back(segPathPoints.at(j));
     }
-    
-    RCLCPP_INFO(this->get_logger(), "Calculating dubins path through %d vertices", pathPoints.size());
+
+    RCLCPP_INFO(this->get_logger(), "Calculating dubins path through %ld vertices", pathPoints.size());
 
     std::vector<SPDubinsPath> sol{};
 
@@ -68,6 +69,7 @@ void RoadmapGenerator::TPResult_callback(interfaces::msg::Result::SharedPtr msg)
                                           true, true, map);
     double length = MPResult.first;
     RCLCPP_INFO(this->get_logger(), "Found dubins path of length %f", length);
+
     plt_clear();
     map.display();
     for (size_t i = 0; i < pathPoints.size() - 1; i++)
@@ -77,8 +79,18 @@ void RoadmapGenerator::TPResult_callback(interfaces::msg::Result::SharedPtr msg)
     }
     draw_points(pathPoints, "b", 5);
     plt_draw();
-    // plt_show();
-    // draw_points(pathPoints, "b");
+
+    std::vector<Point_2> pointApprox;
+    for (size_t i = 0; i < pathPoints.size() - 1; i++)
+    {
+        std::vector<Point_2> p = sol.at(i).getPointApprox(0.1);
+        pointApprox.insert(pointApprox.end(), p.begin(), p.end());
+    }
+    pointApprox.push_back(sol.back().getEndPoint());
+    draw_points(pointApprox, "g", 3);
+    plt_draw();
+    RCLCPP_INFO(this->get_logger(), "Finished");
+    plt_show();
 }
 
 // Convert to message
@@ -91,7 +103,7 @@ void RoadmapGenerator::sendGraph(const std::vector<std::vector<double>> &distMat
 
     // Set the number of nodes
     graph_msg.num_nodes = map.getVictims().size() + 2;
-    int num_nodes = map.getVictims().size() + 2;
+    size_t num_nodes = map.getVictims().size() + 2;
     // Set the profits for each node
     graph_msg.profits.push_back(0); // first node is init_pos
     for (const auto &victim : map.getVictims())
@@ -119,6 +131,8 @@ void RoadmapGenerator::border_callback(const geometry_msgs::msg::PolygonStamped:
         return;
     RCLCPP_INFO(this->get_logger(), "Received border with %ld vertices", msg->polygon.points.size());
     map.setBorder(msg->polygon);
+    map.draw_border();
+    plt_draw();
     border_received = true;
     if (received_all())
     {
@@ -177,6 +191,8 @@ void RoadmapGenerator::obstacles_callback(const obstacles_msgs::msg::ObstacleArr
         obstacles.emplace_back(o);
     }
     map.setObstacles(obstacles);
+    map.draw_obstacles();
+    plt_draw();
     obstacles_received = true;
     if (received_all())
     {
@@ -219,6 +235,8 @@ void RoadmapGenerator::victims_callback(const obstacles_msgs::msg::ObstacleArray
         victims.emplace_back(Point_2(p.x, p.y), o.radius);
     }
     map.setVictims(victims);
+    map.draw_victims();
+    plt_draw();
     victims_received = true;
     if (received_all())
     {
@@ -249,6 +267,11 @@ void RoadmapGenerator::initPose_callback(geometry_msgs::msg::PoseWithCovarianceS
     Direction_2 dir = orientation2dir(orientation);
     Ray_2 CGALPose = Ray_2(Point_2(pos.x, pos.y), dir);
     map.setShelfinoInitPose(CGALPose);
+    if (shelfinoDescr_received)
+    {
+        map.draw_shelfino();
+        plt_draw();
+    }
 
     initPose_received = true;
     if (received_all())
@@ -285,6 +308,11 @@ void RoadmapGenerator::shelfinoDescr_callback(std_msgs::msg::String::SharedPtr m
     double rad = parseShelfinoRadius(msg->data);
     RCLCPP_INFO(this->get_logger(), "Parsed shelfino description");
     map.setShelfinoRadius(rad);
+    if (initPose_received)
+    {
+        map.draw_shelfino();
+        plt_draw();
+    }
     shelfinoDescr_received = true;
     if (received_all())
     {
@@ -314,7 +342,8 @@ void RoadmapGenerator::gate_callback(geometry_msgs::msg::PoseArray::SharedPtr ms
     Direction_2 dir = orientation2dir(orientation);
     Ray_2 CGALPose = Ray_2(Point_2(pos.x, pos.y), dir);
     map.setGatePose(CGALPose);
-
+    map.draw_gate();
+    plt_draw();
     if (skip_shelfino)
     {
         RCLCPP_INFO(this->get_logger(), "Found skip_shelfino=true, creating dummy");
@@ -647,9 +676,9 @@ void RoadmapGenerator::paths_from_roadmap()
 
 void RoadmapGenerator::on_map_complete()
 {
-    plt_show();
-    map.display();
-    plt_draw();
+    // plt_show(2);
+    // map.display();
+    // plt_draw();
     RCLCPP_INFO(this->get_logger(), "Received all map ingredients");
     map.offsetAllPolys();
     plt_clear();

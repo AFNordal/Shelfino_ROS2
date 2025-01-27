@@ -30,14 +30,14 @@
     vect_x: []                   # X position of the victims
     vect_y: []                   # Y position of the victims
     vect_weight: []              # Weight of the victims
-    victims_timeout: 0           # Time given to collect the victims and reach the gate in seconds. If 0, the simulation will choose one.
+    victims_timeout: 100           # Time given to collect the victims and reach the gate in seconds. If 0, the simulation will choose one.
     # If vect_* are empty lists or not defined, then only random victims will be spawned
     
 /**:
   ros__parameters:
-    map: hexagon                # Maps can be "hexagon" or "rectangle"
-    dx: 20.0                    # The width of the rectangle or the length of the hexagon's edges. Default edge used in hexagon.world is 12.0
-    dy: 20.0                    # The height of the rectangle. Not used in hexagon maps
+    map: rectangle                # Maps can be "hexagon" or "rectangle"
+    dx: 5.0                    # The width of the rectangle or the length of the hexagon's edges. Default edge used in hexagon.world is 12.0
+    dy: 5.0                    # The height of the rectangle. Not used in hexagon maps
     max_timeout: 3              # Maximum time to spawn the map. NOT MAINTAINED
     
     init_names: ["shelfino", "evader", "shelfino3", "pursuer"]   # Names of the robots to be spawned

@@ -53,7 +53,7 @@ std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, doub
         DubinsParams params = std::make_pair(lengths, sign_configs.at(i));
         SPDubinsPath p{p0, p1, th0, th1, k, params};
         double l = lengths.at(0) + lengths.at(1) + lengths.at(2);
-        if (!p.isFreeIn(map))
+        if (l < record_l && (!p.isFreeIn(map)))
             l += obstr_cost;
         if (l < record_l)
         {
@@ -108,6 +108,54 @@ std::vector<Point_2> SPDubinsPath::getPolyline(int res)
         line.insert(line.end(), l.begin(), l.end());
     }
     return line;
+}
+
+std::vector<Point_2> DubinsPathSegment::getPointApprox(double spacing)
+{
+    std::vector<Point_2> points;
+    size_t n_points = int(length / spacing);
+    if (t == SEGMENT)
+    {
+        for (int i = 0; i < n_points; i++)
+        {
+            double _t = double(i) / n_points;
+            Point_2 p = seg.source() + seg.to_vector() * _t;
+            points.push_back(p);
+        }
+    }
+    else
+    {
+        for (int i = 0; i < n_points; i++)
+        {
+            points.push_back(arc.eval(i * 1. / n_points));
+        }
+    }
+    return points;
+}
+
+std::vector<Point_2> SPDubinsPath::getPointApprox(double spacing)
+{
+    std::vector<Point_2> points;
+    for (auto &seg : segments)
+    {
+        std::vector<Point_2> l = seg.getPointApprox(spacing);
+        points.insert(points.end(), l.begin(), l.end());
+    }
+    return points;
+}
+
+Point_2 DubinsPathSegment::getEndPoint()
+{
+    if (t == SEGMENT) {
+        return seg.target();
+    } else {
+        return arc.target();
+    }
+}
+
+Point_2 SPDubinsPath::getEndPoint()
+{
+    return segments.back().getEndPoint();
 }
 
 // Returns path length and # of collisions
