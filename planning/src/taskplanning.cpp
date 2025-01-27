@@ -7,22 +7,8 @@ TaskPlanner::TaskPlanner() : Node("task_planner")
     graph_subscription = this->create_subscription<interfaces::msg::Graph>(
         "/graph_topic", TL_qos,
         std::bind(&TaskPlanner::graphCallback, this, std::placeholders::_1));
-    tmax_subscription = this->create_subscription<std_msgs::msg::Int32>(
-        "/victims_timeout", TL_qos,
-        std::bind(&TaskPlanner::tmaxCallback, this, std::placeholders::_1));
     result_publisher = this->create_publisher<interfaces::msg::Result>("/resultTP_topic", TL_qos);
     RCLCPP_INFO(this->get_logger(), "Task Planner node started.");
-}
-
-void TaskPlanner::tmaxCallback(const std_msgs::msg::Int32::SharedPtr msg)
-{
-    if (tmax_received)
-        return;
-    tmax_received = true;
-    tmax = msg->data;
-    RCLCPP_INFO(this->get_logger(), "Received tmax %d", tmax);
-    if (graph_received && tmax_received)
-        onAllReceived();
 }
 
 float TaskPlanner::remainingDistance(int currentNode)
@@ -85,7 +71,7 @@ void TaskPlanner::printPath(const std::vector<int> &pathVisited, int currentProf
     RCLCPP_INFO(this->get_logger(), buf);
 }
 
-std::pair<int, std::vector<int>> TaskPlanner::findMaxProfit()
+std::pair<int, double> TaskPlanner::findMaxProfit(std::vector<int> &path)
 {
     int maxProfit = -1;
     std::vector<bool> visited(num_nodes, false);
@@ -97,31 +83,24 @@ std::pair<int, std::vector<int>> TaskPlanner::findMaxProfit()
     visited[0] = true;
     pathVisited.push_back(0);
     calculatePath(0, 0.0f, profits.at(0), visited, maxProfit, pathVisited, bestPath, shortestPath);
-
-    return {maxProfit, bestPath};
+    path = bestPath;
+    return {maxProfit, shortestPath};
 }
 
 void TaskPlanner::graphCallback(const interfaces::msg::Graph::SharedPtr msg)
 {
-    // if (graph_received)
-    //     return;
-    graph_received = true;
 
     num_nodes = msg->num_nodes;
     travel_distances = msg->travel_distance;
     profits = msg->profits;
+    tmax = msg->tmax;
 
     RCLCPP_INFO(this->get_logger(), "Received Graph message");
-    if (graph_received && tmax_received)
-        onAllReceived();
-}
-
-void TaskPlanner::onAllReceived()
-{
-    auto result = this->findMaxProfit();
+    std::vector<int> bestPath;
+    auto result = this->findMaxProfit(bestPath);
 
     int maxProfit = result.first;
-    std::vector<int> bestPath = result.second;
+    double pathTime = result.second;
 
     auto resultTP_msg = interfaces::msg::Result();
     for (size_t i = 0; i < bestPath.size(); i++)
@@ -129,6 +108,7 @@ void TaskPlanner::onAllReceived()
         resultTP_msg.nodes_visited.push_back(static_cast<int>(bestPath[i]));
     }
     resultTP_msg.profit = maxProfit;
+    resultTP_msg.time = pathTime;
     RCLCPP_INFO(this->get_logger(), "Publishing resultTP");
     result_publisher->publish(resultTP_msg);
 }

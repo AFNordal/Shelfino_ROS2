@@ -35,13 +35,26 @@ RoadmapGenerator::RoadmapGenerator()
     graphPublisher = this->create_publisher<interfaces::msg::Graph>("/graph_topic", TL_qos);
     TPResultSubscription = this->create_subscription<interfaces::msg::Result>(
         "/resultTP_topic", TL_qos, std::bind(&RoadmapGenerator::TPResult_callback, this, _1));
+    tmax_subscription = this->create_subscription<std_msgs::msg::Int32>(
+        "/victims_timeout", TL_qos,
+        std::bind(&RoadmapGenerator::tmax_callback, this, std::placeholders::_1));
+}
+
+void RoadmapGenerator::tmax_callback(const std_msgs::msg::Int32::SharedPtr msg)
+{
+    if (tmax_received)
+        return;
+    tmax_received = true;
+    tmax = msg->data;
+    RCLCPP_INFO(this->get_logger(), "Received tmax %f", tmax);
+    if (received_all())
+    {
+        on_map_complete();
+    }
 }
 
 void RoadmapGenerator::TPResult_callback(interfaces::msg::Result::SharedPtr msg)
 {
-    // if (result_received)
-    //     return;
-    result_received = true;
     RCLCPP_INFO(this->get_logger(), "Received path with profit %d:", msg->profit);
 
     double th0 = dir2ang(map.getShelfino().direction());
@@ -68,6 +81,27 @@ void RoadmapGenerator::TPResult_callback(interfaces::msg::Result::SharedPtr msg)
     auto MPResult = optimalMPDubinsParams(sol, pathPoints, th0, th1,
                                           1. / SHELFINO_TURNING_R, 16,
                                           true, true, map, collisions);
+
+    double req_time = MPResult.first / SHELFINO_VEL;
+    RCLCPP_INFO(this->get_logger(), "Found dubins path that takes %f seconds", req_time);
+
+    plt_clear();
+    map.display();
+    for (size_t i = 0; i < pathPoints.size() - 1; i++)
+    {
+        auto PL = sol.at(i).getPolyline(90);
+        draw_polyline(PL, "r");
+    }
+    plt_draw();
+
+    if (req_time > tmax)
+    {
+        tmax = msg->time - 0.1;
+        RCLCPP_INFO(this->get_logger(), "Path is too long. Retrying with tmax=%f", tmax);
+        sendGraph();
+        return;
+    }
+
     for (size_t i = 0; i < collisions.size(); i++)
     {
         if ((i == collisions.size() - 1) && !map.isWithinBorder(map.getGate().source()))
@@ -89,18 +123,6 @@ void RoadmapGenerator::TPResult_callback(interfaces::msg::Result::SharedPtr msg)
             }
         }
     }
-    double length = MPResult.first;
-    RCLCPP_INFO(this->get_logger(), "Found dubins path that takes %f seconds", length / SHELFINO_VEL);
-
-    plt_clear();
-    map.display();
-    for (size_t i = 0; i < pathPoints.size() - 1; i++)
-    {
-        auto PL = sol.at(i).getPolyline(90);
-        draw_polyline(PL, "r");
-    }
-    draw_points(pathPoints, "b", 5);
-    plt_draw();
 
     std::vector<Point_2> pointApprox;
     for (size_t i = 0; i < pathPoints.size() - 1; i++)
@@ -140,6 +162,7 @@ void RoadmapGenerator::sendGraph(void)
             graph_msg.travel_distance.push_back(distMatrix.at(i).at(j));
         }
     }
+    graph_msg.tmax = tmax;
 
     RCLCPP_INFO(this->get_logger(), "Sending graph to task planner");
     graphPublisher->publish(graph_msg);
