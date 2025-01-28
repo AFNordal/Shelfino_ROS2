@@ -19,6 +19,7 @@ public:
     void send_goal(FP::Goal goal_msg);
 
 private:
+    bool path_received = false;
     void path_callback(const geometry_msgs::msg::PoseArray::SharedPtr msg);
     rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr pathSubscription;
     rclcpp_action::Client<FP>::SharedPtr client_ptr_;

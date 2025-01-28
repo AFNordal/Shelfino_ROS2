@@ -163,7 +163,7 @@ public:
     std::vector<Obstacle> getObstacles() { return obstacles; }
     void offsetAllPolys();
     void setVictims(std::vector<Weighted_point_2> &v) { victims = v; };
-    void setShelfinoInitPose(Ray_2 &pose) { shelfino = pose; };
+    void setShelfinoPose(Ray_2 &pose) { shelfino = pose; };
     void setGatePose(Ray_2 &pose) { gate = pose; gateProjection = pose.source(); };
     void setShelfinoRadius(double r) { shelfino_r = r; }
     void display();

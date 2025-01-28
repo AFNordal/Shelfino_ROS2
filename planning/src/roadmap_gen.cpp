@@ -26,8 +26,8 @@ RoadmapGenerator::RoadmapGenerator()
         "/obstacles", TL_qos, std::bind(&RoadmapGenerator::obstacles_callback, this, _1));
     victimsSubscription = this->create_subscription<obstacles_msgs::msg::ObstacleArrayMsg>(
         "/victims", TL_qos, std::bind(&RoadmapGenerator::victims_callback, this, _1));
-    initPoseSubscription = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
-        "/shelfino/amcl_pose", TL_qos, std::bind(&RoadmapGenerator::initPose_callback, this, _1));
+    shelfinoPoseSubscription = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+        "/shelfino/amcl_pose", TL_qos, std::bind(&RoadmapGenerator::shelfinoPose_callback, this, _1));
     shelfinoDescrSubscription = this->create_subscription<std_msgs::msg::String>(
         "/shelfino/robot_description", TL_qos, std::bind(&RoadmapGenerator::shelfinoDescr_callback, this, _1));
     gateSubscription = this->create_subscription<geometry_msgs::msg::PoseArray>(
@@ -152,7 +152,8 @@ void RoadmapGenerator::TPResult_callback(interfaces::msg::Result::SharedPtr msg)
         pathMsg.poses.push_back(ps);
     }
     pathPublisher->publish(pathMsg);
-    plt_show();
+    planning_done = true;
+    // plt_show();
 }
 
 // Convert to message
@@ -242,26 +243,38 @@ void RoadmapGenerator::victims_callback(const obstacles_msgs::msg::ObstacleArray
     }
 }
 
-void RoadmapGenerator::initPose_callback(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
+void RoadmapGenerator::shelfinoPose_callback(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
-    if (initPose_received)
-        return;
-    RCLCPP_INFO(this->get_logger(), "Received initial shelfino pose");
-    auto orientation = msg->pose.pose.orientation;
-    auto pos = msg->pose.pose.position;
-    Direction_2 dir = orientation2dir(orientation);
-    Ray_2 CGALPose = Ray_2(Point_2(pos.x, pos.y), dir);
-    map.setShelfinoInitPose(CGALPose);
-    if (shelfinoDescr_received)
+    if (!initPose_received)
     {
+        RCLCPP_INFO(this->get_logger(), "Received initial shelfino pose");
+        auto orientation = msg->pose.pose.orientation;
+        auto pos = msg->pose.pose.position;
+        Direction_2 dir = orientation2dir(orientation);
+        Ray_2 CGALPose = Ray_2(Point_2(pos.x, pos.y), dir);
+        map.setShelfinoPose(CGALPose);
+        if (shelfinoDescr_received)
+        {
+            map.draw_shelfino();
+            plt_draw();
+        }
+
+        initPose_received = true;
+        if (received_all())
+        {
+            on_map_complete();
+        }
+    }
+    else if (planning_done)
+    {
+        RCLCPP_INFO(this->get_logger(), "Received shelfino pose update");
+        auto orientation = msg->pose.pose.orientation;
+        auto pos = msg->pose.pose.position;
+        Direction_2 dir = orientation2dir(orientation);
+        Ray_2 CGALPose = Ray_2(Point_2(pos.x, pos.y), dir);
+        map.setShelfinoPose(CGALPose);
         map.draw_shelfino();
         plt_draw();
-    }
-
-    initPose_received = true;
-    if (received_all())
-    {
-        on_map_complete();
     }
 }
 
@@ -303,7 +316,7 @@ void RoadmapGenerator::gate_callback(geometry_msgs::msg::PoseArray::SharedPtr ms
         RCLCPP_INFO(this->get_logger(), "Found skip_shelfino=true, creating dummy");
         initPose_received = true;
         Ray_2 dummyShelfino{Point_2{0, 0}, Direction_2{1, 0}};
-        map.setShelfinoInitPose(dummyShelfino);
+        map.setShelfinoPose(dummyShelfino);
     }
 
     gate_received = true;

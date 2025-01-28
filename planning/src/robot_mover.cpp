@@ -14,13 +14,17 @@ RobotMover::RobotMover() : Node("robot_mover")
 
 void RobotMover::path_callback(const geometry_msgs::msg::PoseArray::SharedPtr msg)
 {
+    if (path_received)
+        return;
+    path_received = true;
     RCLCPP_INFO(this->get_logger(), "Received path");
     auto goal_msg = FP::Goal();
     goal_msg.controller_id = "FollowPath";
     goal_msg.goal_checker_id = "goal_checker";
     goal_msg.path.header.frame_id = "map";
     goal_msg.path.header.stamp = this->now();
-    for (auto &p : msg->poses) {
+    for (auto &p : msg->poses)
+    {
         geometry_msgs::msg::PoseStamped ps;
         ps.pose = p;
         ps.header.frame_id = "map";

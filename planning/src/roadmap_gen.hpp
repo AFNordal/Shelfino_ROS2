@@ -47,7 +47,7 @@ private:
     void border_callback(const geometry_msgs::msg::PolygonStamped::SharedPtr msg);
     void obstacles_callback(obstacles_msgs::msg::ObstacleArrayMsg::SharedPtr msg);
     void victims_callback(obstacles_msgs::msg::ObstacleArrayMsg::SharedPtr msg);
-    void initPose_callback(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
+    void shelfinoPose_callback(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
     void shelfinoDescr_callback(std_msgs::msg::String::SharedPtr msg);
     void gate_callback(geometry_msgs::msg::PoseArray::SharedPtr msg);
     void tmax_callback(const std_msgs::msg::Int32::SharedPtr msg);
@@ -56,7 +56,7 @@ private:
     rclcpp::Subscription<geometry_msgs::msg::PolygonStamped>::SharedPtr borderSubscription;
     rclcpp::Subscription<obstacles_msgs::msg::ObstacleArrayMsg>::SharedPtr obstaclesSubscription;
     rclcpp::Subscription<obstacles_msgs::msg::ObstacleArrayMsg>::SharedPtr victimsSubscription;
-    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initPoseSubscription;
+    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr shelfinoPoseSubscription;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr shelfinoDescrSubscription;
     rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr gateSubscription;
     rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr tmax_subscription;
@@ -91,4 +91,5 @@ private:
                gate_received &&
                tmax_received;
     }
+    bool planning_done = false;
 };
