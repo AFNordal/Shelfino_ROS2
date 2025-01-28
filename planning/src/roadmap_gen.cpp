@@ -132,8 +132,9 @@ void RoadmapGenerator::TPResult_callback(interfaces::msg::Result::SharedPtr msg)
         pointApprox.insert(pointApprox.end(), p.begin(), p.end());
     }
     pointApprox.push_back(sol.back().getEndPoint());
-    draw_points(pointApprox, "g", 3);
-    plt_draw();
+    map.setPath(pointApprox);
+    // draw_points(pointApprox, "g", 3);
+    // plt_draw();
     RCLCPP_INFO(this->get_logger(), "Final path found");
 
     geometry_msgs::msg::PoseArray pathMsg;
@@ -273,7 +274,8 @@ void RoadmapGenerator::shelfinoPose_callback(geometry_msgs::msg::PoseWithCovaria
         Direction_2 dir = orientation2dir(orientation);
         Ray_2 CGALPose = Ray_2(Point_2(pos.x, pos.y), dir);
         map.setShelfinoPose(CGALPose);
-        map.draw_shelfino();
+        plt_clear();
+        map.display();
         plt_draw();
     }
 }

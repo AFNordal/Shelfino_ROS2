@@ -188,6 +188,7 @@ controller_server:
       # lookahead_dist: 0.6
       min_lookahead_dist: 0.2
       max_lookahead_dist: 0.3
+      max_robot_pose_search_dist: 0.5
       lookahead_time: 3.0
       rotate_to_heading_angular_vel: 0.5
       transform_tolerance: 0.1

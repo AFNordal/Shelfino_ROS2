@@ -92,6 +92,13 @@ void Map::display()
     draw_victims();
     draw_gate();
     draw_shelfino();
+    draw_path();
+}
+
+void Map::draw_path() {
+    if (pathSet) {
+        draw_polyline(path, "r");
+    }
 }
 
 void Map::draw_border() {

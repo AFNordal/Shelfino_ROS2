@@ -151,14 +151,15 @@ private:
     Arrangement_2 visibilityCache;
     Face_const_handle main_face;
     bool visibilityCacheComputed = false;
+    bool pathSet = false;
+    std::vector<Point_2> path;
 
 public:
     Map() {};
     void setBorder(geometry_msgs::msg::Polygon &p)
     {
         border = polygonROS2CGAL(p);
-        // border.insert(border.end(), Point_2{0, 3});
-    } // REMOVE
+    }
     void setObstacles(std::vector<Obstacle> &o);
     std::vector<Obstacle> getObstacles() { return obstacles; }
     void offsetAllPolys();
@@ -166,10 +167,12 @@ public:
     void setShelfinoPose(Ray_2 &pose) { shelfino = pose; };
     void setGatePose(Ray_2 &pose) { gate = pose; gateProjection = pose.source(); };
     void setShelfinoRadius(double r) { shelfino_r = r; }
+    void setPath(std::vector<Point_2> &p) { path = p; pathSet = true; }
     void display();
     void draw_border();
     void draw_obstacles();
     void draw_victims();
+    void draw_path();
     void draw_gate();
     void draw_shelfino();
     Bbox_2 getBbox();
