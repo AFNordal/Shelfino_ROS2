@@ -29,4 +29,13 @@ def generate_launch_description():
         parameters=[],
     )
 
-    return LaunchDescription([strategy_arg, skip_shelfino_arg, mapgen_node, planner_node])
+    mover_node = Node(
+        package="planning",
+        executable="robot_mover",
+        name="robot_mover",
+        output="screen",
+        emulate_tty=True,
+        parameters=[],
+    )
+
+    return LaunchDescription([strategy_arg, skip_shelfino_arg, mapgen_node, planner_node, mover_node])

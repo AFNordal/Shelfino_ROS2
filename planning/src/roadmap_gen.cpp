@@ -38,6 +38,7 @@ RoadmapGenerator::RoadmapGenerator()
     tmax_subscription = this->create_subscription<std_msgs::msg::Int32>(
         "/victims_timeout", TL_qos,
         std::bind(&RoadmapGenerator::tmax_callback, this, std::placeholders::_1));
+    pathPublisher = this->create_publisher<geometry_msgs::msg::PoseArray>("/planned_path", TL_qos);
 }
 
 void RoadmapGenerator::tmax_callback(const std_msgs::msg::Int32::SharedPtr msg)
@@ -134,6 +135,23 @@ void RoadmapGenerator::TPResult_callback(interfaces::msg::Result::SharedPtr msg)
     draw_points(pointApprox, "g", 3);
     plt_draw();
     RCLCPP_INFO(this->get_logger(), "Final path found");
+
+    geometry_msgs::msg::PoseArray pathMsg;
+    for (size_t i = 1; i < pointApprox.size(); i++)
+    {
+        Point_2 pt = pointApprox.at(i);
+        geometry_msgs::msg::Pose ps;
+        auto dir = pointApprox.at(i) - pointApprox.at(i - 1);
+        tf2::Quaternion q{};
+        double yaw = std::atan2(dir.y(), dir.x());
+        q.setRPY(0, 0, yaw);
+        ps.position.x = pt.x();
+        ps.position.y = pt.y();
+        ps.position.z = 0;
+        ps.orientation = tf2::toMsg(q);
+        pathMsg.poses.push_back(ps);
+    }
+    pathPublisher->publish(pathMsg);
     plt_show();
 }
 

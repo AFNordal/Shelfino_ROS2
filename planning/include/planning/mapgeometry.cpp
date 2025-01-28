@@ -70,10 +70,7 @@ Direction_2 orientation2dir(geometry_msgs::msg::Quaternion &orientation)
 
     double yaw = std::atan2(2.0 * (qw * qz + qx * qy), 1.0 - 2.0 * (qy * qy + qz * qz));
 
-    double dx = std::cos(yaw);
-    double dy = std::sin(yaw);
-
-    return Direction_2(dx, dy);
+    return Direction_2(std::cos(yaw), std::sin(yaw));
 }
 
 bool Obstacle::contains(const Point_2 &p)

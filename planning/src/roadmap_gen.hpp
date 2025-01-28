@@ -9,6 +9,8 @@
 #include "geometry_msgs/msg/pose_array.hpp"
 #include "obstacles_msgs/msg/obstacle_array_msg.hpp"
 #include "obstacles_msgs/msg/obstacle_msg.hpp"
+#include "tf2/LinearMath/Quaternion.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 #include "planning/mapgeometry.hpp"
 #include "planning/utils.hpp"
@@ -60,6 +62,7 @@ private:
     rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr tmax_subscription;
     rclcpp::Publisher<interfaces::msg::Graph>::SharedPtr graphPublisher;
     rclcpp::Subscription<interfaces::msg::Result>::SharedPtr TPResultSubscription;
+    rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pathPublisher;
 
     bool skip_shelfino;
     bool border_received, obstacles_received, victims_received, initPose_received, shelfinoDescr_received, gate_received, tmax_received = false;
