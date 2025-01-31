@@ -375,21 +375,6 @@ void Obstacle::offset(double r)
     }
 }
 
-// Obstacle Obstacle::calculateOffset(double r) {
-//     Obstacle o;
-//     if (t == CIRCLE)
-//     {
-//         Circle_2 c(circle.center(), std::pow(radius + r, 2));
-//         o = Obstacle(c);
-//     }
-//     else
-//     {
-//         Polygon_2 p = offsetPolygon(polygon, r);
-//         o = Obstacle(p);
-//     }
-//     return o;
-// }
-
 Polygon_2 offsetPolygon(Polygon_2 p, double r)
 {
     if (r > 0)

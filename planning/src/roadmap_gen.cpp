@@ -3,21 +3,23 @@
 RoadmapGenerator::RoadmapGenerator()
     : Node("roadmap_gen")
 {
+    // Parameter arguments
     this->declare_parameter("strategy", "combinatorial");
     this->declare_parameter("skip_shelfino", false);
     std::string strategyStr = this->get_parameter("strategy").as_string();
     skip_shelfino = this->get_parameter("skip_shelfino").as_bool();
     if (strategyStr == "combinatorial")
-    {
         strategy = COMBINATORIAL;
-    }
     else
-    {
         strategy = PROBABILISTIC;
-    }
+
+    // Open plot window
     draw_points({}, "r");
     plt_show(4);
+
     map = Map();
+
+    // Start subscriptions and publishers
     rclcpp::QoS TL_qos(rclcpp::KeepLast(1));
     TL_qos.durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
     borderSubscription = this->create_subscription<geometry_msgs::msg::PolygonStamped>(
@@ -39,6 +41,16 @@ RoadmapGenerator::RoadmapGenerator()
         "/victims_timeout", TL_qos,
         std::bind(&RoadmapGenerator::tmax_callback, this, std::placeholders::_1));
     pathPublisher = this->create_publisher<geometry_msgs::msg::PoseArray>("/planned_path", TL_qos);
+    RCLCPP_INFO(this->get_logger(), "roadmap_gen node started.");
+
+    // For dev purposes; Use a dummy instead of waiting for real one
+    if (skip_shelfino)
+    {
+        RCLCPP_INFO(this->get_logger(), "Found skip_shelfino=true, creating dummy");
+        initPose_received = true;
+        Ray_2 dummyShelfino{Point_2{0, 0}, Direction_2{1, 0}};
+        map.setShelfinoPose(dummyShelfino);
+    }
 }
 
 void RoadmapGenerator::tmax_callback(const std_msgs::msg::Int32::SharedPtr msg)
@@ -54,13 +66,14 @@ void RoadmapGenerator::tmax_callback(const std_msgs::msg::Int32::SharedPtr msg)
     }
 }
 
+// Process path from task planner node
 void RoadmapGenerator::TPResult_callback(interfaces::msg::Result::SharedPtr msg)
 {
     RCLCPP_INFO(this->get_logger(), "Received path with profit %d:", msg->profit);
 
-    double th0 = dir2ang(map.getShelfino().direction());
-    double th1 = dir2ang(map.getGate().direction());
+    // Create vector of path points
     std::vector<Point_2> pathPoints{};
+    // Keep track of which task points are POIs (Points Of Interest == gate, victim or initial shelfino)
     std::vector<int> nodeIndicesInPath{};
     pathPoints.push_back(map.getShelfino().source());
     nodeIndicesInPath.push_back(0);
@@ -70,22 +83,27 @@ void RoadmapGenerator::TPResult_callback(interfaces::msg::Result::SharedPtr msg)
         int nodeIdx = msg->nodes_visited.at(i);
         int nextNodeIdx = msg->nodes_visited.at(i + 1);
         auto segPathPoints = pathPointMatrix.at(nextNodeIdx).at(nodeIdx);
+        // Add intermediate points between POIs
         for (size_t j = 1; j < segPathPoints.size(); j++)
             pathPoints.push_back(segPathPoints.at(j));
         nodeIndicesInPath.push_back(pathPoints.size() - 1);
     }
 
     RCLCPP_INFO(this->get_logger(), "Calculating dubins path through %ld vertices", pathPoints.size());
-
-    std::vector<SPDubinsPath> sol{};
+    // Find dubins
+    double th0 = dir2ang(map.getShelfino().direction());
+    double th1 = dir2ang(map.getGate().direction());
+    std::vector<SPDubinsPath> sol;
     std::vector<int> collisions;
     auto MPResult = optimalMPDubinsParams(sol, pathPoints, th0, th1,
                                           1. / SHELFINO_TURNING_R, 16,
                                           true, true, map, collisions);
-
+    // Time = len / vel
     double req_time = MPResult.first / SHELFINO_VEL;
     RCLCPP_INFO(this->get_logger(), "Found dubins path that takes %f seconds", req_time);
 
+    // Draw path
+    pause_timer();
     plt_clear();
     map.display();
     for (size_t i = 0; i < pathPoints.size() - 1; i++)
@@ -94,37 +112,44 @@ void RoadmapGenerator::TPResult_callback(interfaces::msg::Result::SharedPtr msg)
         draw_polyline(PL, "r");
     }
     plt_draw();
+    resume_timer();
 
+    // Check if path has become too long
     if (req_time > tmax)
     {
+        // Try planning again with a lower tmax
         tmax = msg->time - 0.1;
         RCLCPP_INFO(this->get_logger(), "Path is too long. Retrying with tmax=%f", tmax);
-        sendGraph();
+        send_roadmap();
         return;
     }
 
+    // Search for collisions
     for (size_t i = 0; i < collisions.size(); i++)
     {
+        // If gate is outside offset border, one collision is expected at the last segment
         if ((i == collisions.size() - 1) && !map.isWithinBorder(map.getGate().source()))
-            collisions.at(i)--; // If gate lies outside of map, one collision is expected
+            collisions.at(i)--;
         if (collisions.at(i) > 0)
         {
-            for (size_t j = 0; j < msg->nodes_visited.size(); j++)
+            for (size_t j = 1; j < msg->nodes_visited.size(); j++)
             {
                 if (nodeIndicesInPath.at(j) >= i + 1)
                 {
+                    // At the first collision found, remove link in distMatrix and try planning again.
                     int sourceNode = msg->nodes_visited.at(j - 1);
                     int targetNode = msg->nodes_visited.at(j);
                     RCLCPP_INFO(this->get_logger(), "Collision between node %d and %d. Modifying distance matrix and retrying", sourceNode, targetNode);
                     distMatrix.at(sourceNode).at(targetNode) = INFINITY;
                     distMatrix.at(targetNode).at(sourceNode) = INFINITY;
-                    sendGraph();
+                    send_roadmap();
                     return;
                 }
             }
         }
     }
 
+    // Find point approximation of path
     std::vector<Point_2> pointApprox;
     for (size_t i = 0; i < pathPoints.size() - 1; i++)
     {
@@ -133,10 +158,9 @@ void RoadmapGenerator::TPResult_callback(interfaces::msg::Result::SharedPtr msg)
     }
     pointApprox.push_back(sol.back().getEndPoint());
     map.setPath(pointApprox);
-    // draw_points(pointApprox, "g", 3);
-    // plt_draw();
     RCLCPP_INFO(this->get_logger(), "Final path found");
 
+    // Create PoseArray message from path
     geometry_msgs::msg::PoseArray pathMsg;
     for (size_t i = 1; i < pointApprox.size(); i++)
     {
@@ -152,42 +176,41 @@ void RoadmapGenerator::TPResult_callback(interfaces::msg::Result::SharedPtr msg)
         ps.orientation = tf2::toMsg(q);
         pathMsg.poses.push_back(ps);
     }
+
+    auto [_s, _ms] = read_timer();
+    RCLCPP_INFO(this->get_logger(), "Found path after %lds %ldms", _s, _ms - 1000 * _s);
+
     pathPublisher->publish(pathMsg);
     planning_done = true;
-    // plt_show();
 }
 
-// Convert to message
-void RoadmapGenerator::sendGraph(void)
+// Send distance matrix to task planner
+void RoadmapGenerator::send_roadmap(void)
 {
-
     auto graph_msg = interfaces::msg::Graph();
-
-    // Set the number of nodes
-    graph_msg.num_nodes = map.getVictims().size() + 2;
     size_t num_nodes = map.getVictims().size() + 2;
-    // Set the profits for each node
-    graph_msg.profits.push_back(0); // first node is init_pos
-    for (const auto &victim : map.getVictims())
-    {
-        graph_msg.profits.push_back(victim.weight());
-    }
-    graph_msg.profits.push_back(0); // last node is gate
+    graph_msg.num_nodes = num_nodes;
 
-    // Flatten the adjacency matrix for travel distances
+    // Set the profits for each node
+    // Init pose has no profit
+    graph_msg.profits.push_back(0);
+    for (const auto &victim : map.getVictims())
+        graph_msg.profits.push_back(victim.weight());
+    // Gate has no profit
+    graph_msg.profits.push_back(0);
+
+    // Flatten the distance matrix
     for (size_t i = 0; i < num_nodes; i++)
-    {
         for (size_t j = 0; j < num_nodes; j++)
-        {
             graph_msg.travel_distance.push_back(distMatrix.at(i).at(j));
-        }
-    }
+
     graph_msg.tmax = tmax;
 
     RCLCPP_INFO(this->get_logger(), "Sending graph to task planner");
     graphPublisher->publish(graph_msg);
 }
 
+// Set map border
 void RoadmapGenerator::border_callback(const geometry_msgs::msg::PolygonStamped::SharedPtr msg)
 {
     if (border_received)
@@ -203,6 +226,7 @@ void RoadmapGenerator::border_callback(const geometry_msgs::msg::PolygonStamped:
     }
 }
 
+// Insert obstacles in map
 void RoadmapGenerator::obstacles_callback(const obstacles_msgs::msg::ObstacleArrayMsg::SharedPtr msg)
 {
     if (obstacles_received)
@@ -210,9 +234,8 @@ void RoadmapGenerator::obstacles_callback(const obstacles_msgs::msg::ObstacleArr
     RCLCPP_INFO(this->get_logger(), "Received %ld obstacles", msg->obstacles.size());
     std::vector<Obstacle> obstacles;
     for (auto o : msg->obstacles)
-    {
         obstacles.emplace_back(o);
-    }
+
     map.setObstacles(obstacles);
     map.draw_obstacles();
     plt_draw();
@@ -223,6 +246,7 @@ void RoadmapGenerator::obstacles_callback(const obstacles_msgs::msg::ObstacleArr
     }
 }
 
+// Insert victims in map
 void RoadmapGenerator::victims_callback(const obstacles_msgs::msg::ObstacleArrayMsg::SharedPtr msg)
 {
     if (victims_received)
@@ -244,8 +268,10 @@ void RoadmapGenerator::victims_callback(const obstacles_msgs::msg::ObstacleArray
     }
 }
 
+// Process updates to shelfino pose
 void RoadmapGenerator::shelfinoPose_callback(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
+    // If never seen before, treat as initial pose for planning
     if (!initPose_received)
     {
         RCLCPP_INFO(this->get_logger(), "Received initial shelfino pose");
@@ -266,9 +292,9 @@ void RoadmapGenerator::shelfinoPose_callback(geometry_msgs::msg::PoseWithCovaria
             on_map_complete();
         }
     }
+    // If planning is done, redraw shelfino with new pose
     else if (planning_done)
     {
-        RCLCPP_INFO(this->get_logger(), "Received shelfino pose update");
         auto orientation = msg->pose.pose.orientation;
         auto pos = msg->pose.pose.position;
         Direction_2 dir = orientation2dir(orientation);
@@ -280,13 +306,13 @@ void RoadmapGenerator::shelfinoPose_callback(geometry_msgs::msg::PoseWithCovaria
     }
 }
 
+// Set radius of shelfino model in map
 void RoadmapGenerator::shelfinoDescr_callback(std_msgs::msg::String::SharedPtr msg)
 {
     if (shelfinoDescr_received)
         return;
     RCLCPP_INFO(this->get_logger(), "Received shelfino description");
     double rad = parseShelfinoRadius(msg->data);
-    RCLCPP_INFO(this->get_logger(), "Parsed shelfino description");
     map.setShelfinoRadius(rad);
     if (initPose_received)
     {
@@ -300,6 +326,7 @@ void RoadmapGenerator::shelfinoDescr_callback(std_msgs::msg::String::SharedPtr m
     }
 }
 
+// Insert gate in map
 void RoadmapGenerator::gate_callback(geometry_msgs::msg::PoseArray::SharedPtr msg)
 {
     if (gate_received)
@@ -313,14 +340,6 @@ void RoadmapGenerator::gate_callback(geometry_msgs::msg::PoseArray::SharedPtr ms
     map.draw_gate();
     plt_draw();
 
-    if (skip_shelfino)
-    {
-        RCLCPP_INFO(this->get_logger(), "Found skip_shelfino=true, creating dummy");
-        initPose_received = true;
-        Ray_2 dummyShelfino{Point_2{0, 0}, Direction_2{1, 0}};
-        map.setShelfinoPose(dummyShelfino);
-    }
-
     gate_received = true;
     if (received_all())
     {
@@ -328,19 +347,19 @@ void RoadmapGenerator::gate_callback(geometry_msgs::msg::PoseArray::SharedPtr ms
     }
 }
 
+// Recursive path smoothing
 void RoadmapGenerator::smooth_bisect(const std::vector<std::shared_ptr<Vertex>> &path,
                                      std::list<std::shared_ptr<Vertex>> &smooth,
                                      size_t idx0, size_t idx1,
                                      const std::list<std::shared_ptr<Vertex>>::iterator &smooth_inserter)
 {
+    // If we have two consecutive nodes, we can't divide further
     if (idx0 + 1 == idx1)
-    {
         return;
-    }
+    // If segment from start to end is free, don't divide further
     if (map.isFree(Segment_2(path.at(idx0)->getAlias(), path.at(idx1)->getAlias())))
-    {
         return;
-    }
+    // Otherwise, divide and recurse
     size_t mid_idx = (idx1 + idx0) / 2;
     auto first_half_inserter = smooth.insert(smooth_inserter, path.at(mid_idx));
     smooth_bisect(path, smooth, mid_idx, idx1, smooth_inserter);
@@ -351,6 +370,7 @@ void RoadmapGenerator::smooth_bisect(const std::vector<std::shared_ptr<Vertex>> 
 // G is a Graph object that already contains the POI vertices.
 void RoadmapGenerator::generate_PRM(Graph &G)
 {
+    // Sample smallest rectangle around map
     Bbox_2 bbox = map.getBbox();
     double *samples = hammersley_sequence(0, N_SAMPLES - 1, 2, N_SAMPLES);
     RCLCPP_INFO(this->get_logger(), "Got Hammersley samples");
@@ -388,6 +408,7 @@ void RoadmapGenerator::generate_PRM(Graph &G)
             if (already_connected)
                 continue;
 
+            // Use alias; In case gate is outside offset border
             Segment_2 aliasSeg{q->getAlias(), n->getAlias()};
             if (map.isFree(aliasSeg))
                 G.connect(q, n, std::make_shared<SegmentEdge>(Segment_2{*q, *n}));
@@ -397,6 +418,7 @@ void RoadmapGenerator::generate_PRM(Graph &G)
     delete[] samples;
 }
 
+// fmod, but sane output for negative numbers
 double realFmod(double x, double y)
 {
     if (x < 0)
@@ -405,6 +427,7 @@ double realFmod(double x, double y)
         return fmod(x, y);
 }
 
+// Modular bounds check (mod pi)
 bool withinModPi(double x, double l, double u)
 {
 
@@ -421,12 +444,16 @@ bool withinModPi(double x, double l, double u)
     }
 }
 
+// Create a graph of reflex verteces, and connect them in a minimal clearance graph.
+// G is a Graph object that already contains the POI vertices.
 void RoadmapGenerator::minimal_clearance_graph(Graph &G, const std::vector<shared_ptr<Vertex>> &POIs)
 {
-    // Graph G;
+    // Reflex vertices (RV) marginally offset out from respective obstacles, for visibility queries
     std::vector<Point_2> offsetRV;
+    // Angles of adjacent edges to each RV 
     std::vector<double> inAngs, outAngs;
     std::vector<Point_2> rv = map.getReflexVertices(offsetRV, inAngs, outAngs);
+    // Vector of 'Vertex' representation of offsetRVs
     std::vector<shared_ptr<Vertex>> addedVertices;
     size_t N_rv = offsetRV.size();
     for (size_t i = 0; i < N_rv; i++)
@@ -435,18 +462,19 @@ void RoadmapGenerator::minimal_clearance_graph(Graph &G, const std::vector<share
         addedVertices.push_back(v);
         G.addVertex(v);
     }
-    // auto vertices = G.getVertices();
-    draw_points(rv, "r", 3);
-    plt_draw();
+
+    // Connect vertices
     for (size_t i = 0; i < N_rv; i++)
     {
         auto visPoints = map.visibilityQuery(offsetRV.at(i));
+        // For each visible point, find corresponding index
         for (auto &vp : visPoints)
         {
             for (size_t j = 0; j < N_rv; j++)
             {
                 if ((rv.at(j) == vp) && (j != i))
                 {
+                    // Connect vertices if the segment between them 'grazes' the obstacles/border
                     Segment_2 seg{rv.at(i), rv.at(j)};
                     double ang = dir2ang(seg.direction());
                     if (withinModPi(ang, inAngs[i], outAngs[i]) &&
@@ -454,15 +482,13 @@ void RoadmapGenerator::minimal_clearance_graph(Graph &G, const std::vector<share
                     {
                         G.connect(addedVertices.at(i), addedVertices.at(j),
                                   std::make_shared<SegmentEdge>(Segment_2{*addedVertices.at(i), *addedVertices.at(j)}));
-                        // draw_segment(Segment_2{*addedVertices.at(i), *addedVertices.at(j)}, "orange");
-                        // draw_segment(seg, "red");
                     }
                 }
             }
         }
     }
 
-    // Connect POIs to eachother
+    // Connect POIs to eachother if the segment between them is free
     for (size_t i = 0; i < POIs.size(); i++)
     {
         for (size_t j = 0; j < i; j++)
@@ -472,10 +498,11 @@ void RoadmapGenerator::minimal_clearance_graph(Graph &G, const std::vector<share
             {
                 G.connect(POIs.at(i), POIs.at(j),
                           std::make_shared<SegmentEdge>(Segment_2{*POIs.at(i), *POIs.at(j)}));
-                // draw_segment(Segment_2{*POIs.at(i), *POIs.at(j)}, "b");
             }
         }
     }
+
+    // Connect POIs to visible reflex vertices
     for (auto &p : POIs)
     {
         std::vector<Point_2> visPoints;
@@ -486,12 +513,12 @@ void RoadmapGenerator::minimal_clearance_graph(Graph &G, const std::vector<share
             {
                 if ((rv.at(i) == vp))
                 {
+                    // Connect if segment 'grazes' the obstacle/border
                     Segment_2 seg{*p, *(addedVertices.at(i))};
                     double ang = dir2ang(seg.direction());
                     if (withinModPi(ang, inAngs[i], outAngs[i]))
                     {
                         G.connect(p, addedVertices.at(i), std::make_shared<SegmentEdge>(seg));
-                        // draw_segment(seg, "k");
                     }
                 }
             }
@@ -501,9 +528,10 @@ void RoadmapGenerator::minimal_clearance_graph(Graph &G, const std::vector<share
     RCLCPP_INFO(this->get_logger(), "Min. clearance graph done");
 }
 
+// Create MP dubins paths between all POIs through PRM/min-clearance-graph 
 void RoadmapGenerator::paths_from_roadmap()
 {
-    // Initialize PRM graph and insert POI vertices
+    // Initialize graph and insert POI vertices
     Graph G;
     std::vector<shared_ptr<Vertex>> POIs;
     std::shared_ptr<Vertex> shelfinoVertex = std::make_shared<Vertex>(map.getShelfino().source());
@@ -518,23 +546,29 @@ void RoadmapGenerator::paths_from_roadmap()
     std::shared_ptr<Vertex> gateVertex = std::make_shared<Vertex>(map.getGate().source(), map.getGateProjection());
     G.addVertex(gateVertex);
     POIs.push_back(gateVertex);
-    // Distance matrix for planner
+
+    // Matrix representations of graphs of final POI-POI paths
     distMatrix = std::vector<std::vector<double>>(POIs.size(), std::vector<double>(POIs.size()));
     pathPointMatrix = std::vector<std::vector<std::vector<Point_2>>>(POIs.size(), std::vector<std::vector<Point_2>>(POIs.size(), std::vector<Point_2>{}));
+
+    // Populate G according to strategy
     if (strategy == COMBINATORIAL)
         minimal_clearance_graph(G, POIs);
     else
         generate_PRM(G);
 
+    // Find path between each pair of POIs
     int path_cntr = 0;
     for (size_t i = 0; i < POIs.size(); i++)
     {
         for (size_t j = i + 1; j < POIs.size(); j++)
         {
+            // Find shortest path of segments (not dubins)
             std::vector<std::shared_ptr<Vertex>> shortestPath = G.dijkstra(POIs.at(i), POIs.at(j));
             std::shared_ptr<Vertex> first = shortestPath.front();
             std::shared_ptr<Vertex> last = shortestPath.back();
 
+            // Insert vertices in point vector, do path smoothing if using PRM
             std::vector<Point_2> pathPoints{};
             if (strategy == PROBABILISTIC)
             {
@@ -551,10 +585,11 @@ void RoadmapGenerator::paths_from_roadmap()
                 for (auto &p : shortestPath)
                     pathPoints.push_back(*p);
             }
-            // draw_polyline(pathPoints, matplotlib_color_range[col_cntr]);
-            std::vector<SPDubinsPath> sol;
+
+            // Establish constraints for MP dubins path
             double th0, th1;
             bool th0_constrained, th1_constrained;
+            // Whether a path connects to the gate
             bool gate_connection = false;
             if (first == shelfinoVertex)
             {
@@ -589,44 +624,79 @@ void RoadmapGenerator::paths_from_roadmap()
                 th1 = 0;
                 th1_constrained = false;
             }
-            std::vector<int> collision_locator;
-            auto MPResult = optimalMPDubinsParams(sol, pathPoints, th0, th1,
-                                                  1. / SHELFINO_TURNING_R, 16,
-                                                  th0_constrained, th1_constrained, map, collision_locator);
-            double L = MPResult.first / SHELFINO_VEL;
-            int collisions = MPResult.second;
-            if (gate_connection && !(map.isWithinBorder(map.getGate().source())))
-                collisions--;
-            if (collisions > 0)
-                L = INFINITY;
+
+            // Find MP dubins
+            double L;
+            // If no constraints and only two vertices, dubins path reduces to a segment that by definition is free
+            if (!th1_constrained && !th0_constrained && (pathPoints.size() == 2))
+            {
+                L = std::sqrt((pathPoints.at(1) - pathPoints.at(0)).squared_length());
+                pause_timer();
+                draw_polyline(pathPoints, matplotlib_color_range[path_cntr % matplotlib_color_range.size()]);
+                resume_timer();
+            }
+            // Otherwise, find actual MP dubins
+            else
+            {
+                std::vector<SPDubinsPath> sol;
+                // Deliberately unused; Don't care where collisions happen
+                std::vector<int> collision_locator;
+                auto MPResult = optimalMPDubinsParams(sol, pathPoints, th0, th1,
+                                                      1. / SHELFINO_TURNING_R, 16,
+                                                      th0_constrained, th1_constrained, map, collision_locator);
+                                            
+                L = MPResult.first;
+                int collisions = MPResult.second;
+                // If gate is outside offset border, one collision is expected
+                if (gate_connection && !(map.isWithinBorder(map.getGate().source())))
+                    collisions--;
+                // If a path has collisions, set length to infinity (not connected)
+                if (collisions > 0)
+                    L = INFINITY;
+                
+                // Draw path
+                pause_timer();
+                for (size_t i = 0; i < pathPoints.size() - 1; i++)
+                {
+                    auto PL = sol.at(i).getPolyline(90);
+                    draw_polyline(PL, matplotlib_color_range[path_cntr % matplotlib_color_range.size()]);
+                }
+                resume_timer();
+            }
+            // time = length / vel
+            L /= SHELFINO_VEL;
+
+            // Update POI graph
             distMatrix.at(i).at(j) = L;
             distMatrix.at(j).at(i) = L;
             pathPointMatrix.at(i).at(j) = pathPoints;
             pathPointMatrix.at(j).at(i) = vector<Point_2>(pathPoints.rbegin(), pathPoints.rend());
 
-            for (size_t i = 0; i < pathPoints.size() - 1; i++)
-            {
-                auto PL = sol.at(i).getPolyline(90);
-                draw_polyline(PL, matplotlib_color_range[path_cntr % matplotlib_color_range.size()]);
-            }
-            draw_points(pathPoints, "b");
+            pause_timer();
             plt_draw();
+            resume_timer();
             path_cntr++;
             RCLCPP_INFO(this->get_logger(), "Found dubins path %d/%ld", path_cntr, (POIs.size() * (POIs.size() - 1)) / 2);
         }
     }
 }
 
+// Main orchestrator function
 void RoadmapGenerator::on_map_complete()
 {
-    RCLCPP_INFO(this->get_logger(), "Received all map ingredients");
+    RCLCPP_INFO(this->get_logger(), "Received all map ingredients. Starting timer");
+    start_timer();
     map.offsetAllPolys();
+    pause_timer();
     plt_clear();
     map.display();
     plt_draw();
+    resume_timer();
     RCLCPP_INFO(this->get_logger(), "Map polygons offset");
     paths_from_roadmap();
-    sendGraph();
+    auto [_s, _ms] = read_timer();
+    RCLCPP_INFO(this->get_logger(), "Generated roadmap in %lds %ldms", _s, _ms);
+    send_roadmap();
 }
 
 int main(int argc, char *argv[])

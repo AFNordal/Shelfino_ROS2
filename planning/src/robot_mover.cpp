@@ -10,6 +10,7 @@ RobotMover::RobotMover() : Node("robot_mover")
     this->client_ptr_ = rclcpp_action::create_client<FP>(
         this,
         "/shelfino/follow_path");
+    RCLCPP_INFO(this->get_logger(), "robot_mover node started.");
 }
 
 void RobotMover::path_callback(const geometry_msgs::msg::PoseArray::SharedPtr msg)
@@ -28,7 +29,6 @@ void RobotMover::path_callback(const geometry_msgs::msg::PoseArray::SharedPtr ms
         geometry_msgs::msg::PoseStamped ps;
         ps.pose = p;
         ps.header.frame_id = "map";
-        ps.header.stamp = this->now();
         goal_msg.path.poses.push_back(ps);
     }
     send_goal(goal_msg);
@@ -61,7 +61,9 @@ void RobotMover::send_goal(FP::Goal goal_msg)
                                               GoalHandle::SharedPtr,
                                               const std::shared_ptr<const FP::Feedback> feedback)
     {
-        RCLCPP_INFO(this->get_logger(), "Moving at speed %f", feedback->speed);
+        static int i = 0;
+        if ((i++ % 100) == 0)
+            RCLCPP_INFO(this->get_logger(), "Moving at speed %f", feedback->speed);
     };
 
     send_goal_options.result_callback = [this](const GoalHandle::WrappedResult &result)
@@ -82,9 +84,6 @@ void RobotMover::send_goal(FP::Goal goal_msg)
         }
         std::stringstream ss;
         ss << "Result received: ";
-        //   for (auto number : result.result->sequence) {
-        //     ss << number << " ";
-        //   }
         RCLCPP_INFO(this->get_logger(), ss.str().c_str());
         rclcpp::shutdown();
     };

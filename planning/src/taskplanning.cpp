@@ -2,13 +2,14 @@
 
 TaskPlanner::TaskPlanner() : Node("task_planner")
 {
+    // Initialize subscription and publisher
     rclcpp::QoS TL_qos(rclcpp::KeepLast(1));
     TL_qos.durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
     graph_subscription = this->create_subscription<interfaces::msg::Graph>(
         "/graph_topic", TL_qos,
         std::bind(&TaskPlanner::graphCallback, this, std::placeholders::_1));
     result_publisher = this->create_publisher<interfaces::msg::Result>("/resultTP_topic", TL_qos);
-    RCLCPP_INFO(this->get_logger(), "Task Planner node started.");
+    RCLCPP_INFO(this->get_logger(), "task_planner node started.");
 }
 
 float TaskPlanner::remainingDistance(int currentNode)
@@ -20,7 +21,6 @@ float TaskPlanner::remainingDistance(int currentNode)
 void TaskPlanner::calculatePath(int currentNode, float currentDistance, int currentProfit,
                                 std::vector<bool> &visited, int &maxProfit, std::vector<int> &pathVisited, std::vector<int> &bestPath, int &shortestPath)
 {
-    // printPath(pathVisited, currentProfit, currentDistance);
     // Before exploring any path, check if it's still possible to reach the last node within tmax
     float remaining = remainingDistance(currentNode);
     if (currentDistance + remaining > tmax)
@@ -62,12 +62,12 @@ void TaskPlanner::calculatePath(int currentNode, float currentDistance, int curr
 void TaskPlanner::printPath(const std::vector<int> &pathVisited, int currentProfit, double currentDistance)
 {
     char buf[1024];
-    sprintf(buf, "Path visited: ");
+    sprintf(buf, "Candidate path: ");
     for (int node : pathVisited)
     {
-        sprintf(buf + strlen(buf), "%d -> ", node);
+        sprintf(buf + strlen(buf), "%d>", node);
     }
-    sprintf(buf + strlen(buf), "P: %d, L: %f", currentProfit, currentDistance);
+    sprintf(buf + strlen(buf), "\b P: %d, L: %f", currentProfit, currentDistance);
     RCLCPP_INFO(this->get_logger(), buf);
 }
 
