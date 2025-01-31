@@ -10,6 +10,7 @@ std::array<double, 3> arr_mul(const std::array<double, 3> &s, const double &x)
     return std::array<double, 3>{s.at(0) * x, s.at(1) * x, s.at(2) * x};
 }
 
+// Check if this dubins path segment is free in map
 bool DubinsPathSegment::isFreeIn(const Map &map, const int arc_samples)
 {
     if (t == ARC)
@@ -17,12 +18,6 @@ bool DubinsPathSegment::isFreeIn(const Map &map, const int arc_samples)
     else
         return map.isFree(seg);
 }
-
-// void SPDubinsPath::createOptimal()
-// {
-//     auto optimalParams = optimalDubinsParams(p0, p1, th0, th1, k);
-//     setFromParams(optimalParams);
-// }
 
 void SPDubinsPath::setFromParams(DubinsParams p)
 {
@@ -38,6 +33,7 @@ void SPDubinsPath::setFromParams(DubinsParams p)
                           lengths[2], signs[2], k);
 }
 
+// DP approach to find optimal dubins path between two points. Considers collisions in optimality.
 std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, double th0, double th1, double k, const Map &map, const double obstr_cost)
 {
     double record_l = INFINITY;
@@ -53,6 +49,7 @@ std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, doub
         DubinsParams params = std::make_pair(lengths, sign_configs.at(i));
         SPDubinsPath p{p0, p1, th0, th1, k, params};
         double l = lengths.at(0) + lengths.at(1) + lengths.at(2);
+        // Check for collision if this is a candidate
         if (l < record_l && (!p.isFreeIn(map)))
             l += obstr_cost;
         if (l < record_l)
@@ -66,6 +63,7 @@ std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, doub
     return std::make_pair(record_l, best_path);
 }
 
+// Scale to standard dubins problem
 StdDubinsProblem createStdDubinsProblem(Point_2 p0, Point_2 p1, double th0, double th1, double k)
 {
     StdDubinsProblem prob;
@@ -110,6 +108,7 @@ std::vector<Point_2> SPDubinsPath::getPolyline(int res)
     return line;
 }
 
+// Get constantly spaced points on path segment
 std::vector<Point_2> DubinsPathSegment::getPointApprox(double spacing)
 {
     std::vector<Point_2> points;
@@ -133,6 +132,7 @@ std::vector<Point_2> DubinsPathSegment::getPointApprox(double spacing)
     return points;
 }
 
+// Get constantly spaced points on path
 std::vector<Point_2> SPDubinsPath::getPointApprox(double spacing)
 {
     std::vector<Point_2> points;
@@ -147,13 +147,9 @@ std::vector<Point_2> SPDubinsPath::getPointApprox(double spacing)
 Point_2 DubinsPathSegment::getEndPoint()
 {
     if (t == SEGMENT)
-    {
         return seg.target();
-    }
     else
-    {
         return arc.target();
-    }
 }
 
 Point_2 SPDubinsPath::getEndPoint()
@@ -161,23 +157,25 @@ Point_2 SPDubinsPath::getEndPoint()
     return segments.back().getEndPoint();
 }
 
+// Find optimal multi-point dubins path. through 'ps'. Solution stored in 'sol_paths'
 // Returns path length and # of collisions
+// A bit of a mess, but works well
 std::pair<double, int> optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_paths,
                                              const std::vector<Point_2> &ps,
                                              double th0, double th1, double k, const size_t &angRes,
                                              bool th0_constrained, bool th1_constrained,
-                                             const Map &map, std::vector<int> &collisions, const double obstr_cost)
+                                             const Map &map, std::vector<int> &collision_locator, const double obstr_cost)
 {
     const size_t N = ps.size();
     assert(N >= 2);
-    collisions = std::vector<int>(N - 1, 0);
+    collision_locator = std::vector<int>(N - 1, 0);
     if (N == 2 && th1_constrained && th0_constrained)
     {
         auto res = optimalDubinsParams(ps.at(0), ps.at(1), th0, th1, k, map, obstr_cost);
         sol_paths = std::vector<SPDubinsPath>{};
         sol_paths.push_back(res.second);
         int n_col = int(res.first / obstr_cost);
-        collisions.at(0) = n_col;
+        collision_locator.at(0) = n_col;
         return std::make_pair(fmod(res.first, obstr_cost), n_col);
     }
     int it_hi = th1_constrained ? N - 3 : N - 2;
@@ -249,7 +247,7 @@ std::pair<double, int> optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_path
     {
         sol_paths.at(0) = sol_tracker.at(0).at(best_h).second;
         int n_col = int(sol_tracker.at(0).at(best_h).first / obstr_cost);
-        collisions.at(0) = n_col;
+        collision_locator.at(0) = n_col;
     }
     else
     {
@@ -269,7 +267,7 @@ std::pair<double, int> optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_path
         {
             sol_paths.at(i) = sol_tracker.at(i).at(best_h).second;
             int n_col = int(sol_tracker.at(i).at(best_h).first / obstr_cost);
-            collisions.at(i) = n_col;
+            collision_locator.at(i) = n_col;
         }
         if (i < N - 2)
             best_h = ang_idx_tracker.at(i).at(best_h);

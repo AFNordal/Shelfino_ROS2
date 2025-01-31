@@ -1,6 +1,6 @@
 #pragma once
 
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#include "CGAL/Exact_predicates_inexact_constructions_kernel.h"
 #include "dubins_solvers.hpp"
 #include "mapgeometry.hpp"
 
@@ -26,6 +26,7 @@ typedef enum
     SEGMENT
 } DubinsPathSegmentType;
 
+// One of the three arcs or segments that make up an SP dubins path
 class DubinsPathSegment
 {
 private:
@@ -70,6 +71,7 @@ public:
     bool isFreeIn(const Map &map, const int arc_samples);
 };
 
+// One SP dubins path
 class SPDubinsPath
 {
 private:
@@ -113,9 +115,3 @@ std::pair<double, int> optimalMPDubinsParams(std::vector<SPDubinsPath> &sol_path
                              double th0, double th1, double k, const size_t &angRes,
                              bool th0_constrained, bool th1_constrained,
                              const Map &map, std::vector<int> &collisions, const double obstr_cost=1000);
-
-class MPDubinsPath
-{
-private:
-public:
-};

@@ -1,5 +1,7 @@
 #include "mapgeometry.hpp"
 
+// MATPLOTLIB WRAPPERS:
+
 void plt_show(double pause_t)
 {
     plt::ion();
@@ -19,11 +21,6 @@ void plt_clear() {
 void draw_segment(const Segment_2 &s, std::string color, double linewidth)
 {
     plt::plot({s[0].x(), s[1].x()}, {s[0].y(), s[1].y()}, {{"color", color}, {"linewidth", std::to_string(linewidth)}});
-}
-
-double dir2ang(Direction_2 dir)
-{
-    return std::atan2(dir.dy(), dir.dx());
 }
 
 void draw_polyline(const std::vector<Point_2> &points, std::string color, double linewidth)
@@ -61,29 +58,209 @@ void draw_arrows(const std::vector<Point_2> &points, const std::vector<double> &
     }
 }
 
+void draw_circle(const Point_2 &center, const double r, std::string color, bool fill, int resolution)
+{
+    Circle_2 c{center, std::pow(r, 2)};
+    Polygon_2 p = circle2poly(c, resolution);
+    draw_poly(p, color, fill);
+}
+
+void draw_poly(const Polygon_2 &p, std::string color, bool fill)
+{
+    size_t N = p.size();
+    std::vector<double> x(N + 1), y(N + 1);
+    for (size_t i = 0; i < N + 1; i++)
+    {
+        x.at(i) = p[i % N].x();
+        y.at(i) = p[i % N].y();
+    }
+    if (fill)
+        plt::fill(x, y, {{"color", color}});
+    else
+        plt::plot(x, y, {{"color", color}});
+}
+
+// VARIOUS CONVERSION FUNCTIONS:
+
+double dir2ang(Direction_2 dir)
+{
+    return std::atan2(dir.dy(), dir.dx());
+}
+
 Direction_2 orientation2dir(geometry_msgs::msg::Quaternion &orientation)
 {
     double qx = orientation.x;
     double qy = orientation.y;
     double qz = orientation.z;
     double qw = orientation.w;
-
     double yaw = std::atan2(2.0 * (qw * qz + qx * qy), 1.0 - 2.0 * (qy * qy + qz * qz));
-
     return Direction_2(std::cos(yaw), std::sin(yaw));
+}
+
+// CGAL kernel conversion
+Exact_polygon_2 inexact2exact(Polygon_2 p)
+{
+    Exact_polygon_2 cp{};
+    for (auto &pt : p)
+        cp.push_back(exactifier(pt));
+    return cp;
+}
+
+// CGAL kernel conversion
+Polygon_2 exact2inexact(Exact_polygon_2 cp)
+{
+    Polygon_2 p{};
+    for (auto &pt : cp)
+        p.push_back(inexactifier(pt));
+    return p;
+}
+
+Polygon_2 polygonROS2CGAL(geometry_msgs::msg::Polygon &msg)
+{
+    std::vector<Point_2> v;
+    for (auto rosPoint : msg.points)
+    {
+        v.emplace_back(rosPoint.x, rosPoint.y);
+    }
+    Polygon_2 p{v.begin(), v.end()};
+    if (p.is_clockwise_oriented())
+    {
+        p.reverse_orientation();
+    }
+    return p;
+}
+
+// circumscribed polygon approximation with n vertices
+Polygon_2 circle2poly(Circle_2 &c, int n)
+{
+    double r = std::sqrt(c.squared_radius());
+    double ang = 2 * M_PI / n;
+    double outer_r = r / std::cos(ang / 2);
+
+    std::vector<Point_2> v;
+    for (int i = 0; i < n; i++)
+    {
+        double x = c.center().x() + outer_r * std::cos(i * ang);
+        double y = c.center().y() + outer_r * std::sin(i * ang);
+        v.emplace_back(x, y);
+    }
+    return Polygon_2(v.begin(), v.end());
+}
+
+// GEOMETRY:
+
+Polygon_2 offsetPolygon(Polygon_2 p, double r)
+{
+    if (r > 0)
+    {
+        // Offset outward (typical for obstacle)
+        auto polyVec = CGAL::create_exterior_skeleton_and_offset_polygons_2(r, p);
+        Polygon_2 off = *polyVec.at(1);
+        if (off.is_clockwise_oriented())
+            off.reverse_orientation();
+        return off;
+    }
+    else if (r < 0)
+    {
+        // Offset inward (typical for border)
+        auto polyVec = CGAL::create_interior_skeleton_and_offset_polygons_2(-r, p);
+        Polygon_2 off = *polyVec.at(0);
+        if (off.is_clockwise_oriented())
+            off.reverse_orientation();
+        return off;
+    }
+    else
+        return p;
+}
+
+// INTERSECTION CHECKS:
+
+bool segment_polygon_intersection(const Segment_2 &s, const Polygon_2 &p)
+{
+    auto it = p.edges_begin();
+    while (it != p.edges_end())
+    {
+        if (CGAL::do_intersect(*it, s))
+            return true;
+        it++;
+    }
+    return false;
+}
+
+// Check if polygons intersect (true if p1 is inside p2)
+bool polygon_polygon_intersection(const Polygon_2 &p1, const Polygon_2 &p2)
+{
+    return CGAL::do_intersect(inexact2exact(p1), inexact2exact(p2));
+}
+
+// Check if any edges of one polygon intersect with the other (false if p1 is inside p2)
+bool polygon_polygon_edge_intersection(const Polygon_2 &p1, const Polygon_2 &p2)
+{
+    for (auto eit = p1.edges_begin(); eit != p1.edges_end(); eit++)
+    {
+        if (segment_polygon_intersection(*eit, p2))
+            return true;
+    }
+    return false;
+}
+
+// UTILITY FUNCTIONS:
+
+// Find the offset that would make both edge iterators start at the rightmost vertex of their polygon
+int getVertexIndexOffset(Polygon_2 &p1, Polygon_2 &p2)
+{
+    return distance(p1.begin(), p1.right_vertex()) - distance(p2.begin(), p2.right_vertex());
+}
+
+// Modulo that handles negative ints
+int mod(int a, int b)
+{
+    return (a % b + b) % b;
+}
+
+// OBSTACLE METHODS:
+
+Obstacle::Obstacle(obstacles_msgs::msg::ObstacleMsg &o)
+{
+    if (o.radius == 0)
+    {
+        t = POLYGON;
+        polygon = polygonROS2CGAL(o.polygon);
+    }
+    else
+    {
+        t = CIRCLE;
+        auto center = o.polygon.points.at(0);
+        circle = Circle_2(Point_2(center.x, center.y), std::pow(o.radius, 2));
+        radius = o.radius;
+    }
 }
 
 bool Obstacle::contains(const Point_2 &p)
 {
     if (t == CIRCLE)
-    {
         return circle.has_on_bounded_side(p);
-    }
     else
-    {
         return polygon.has_on_bounded_side(p);
-    }
 }
+
+bool Obstacle::segmentCollides(const Segment_2 &s) const
+{
+    if (t == CIRCLE)
+        return CGAL::do_intersect(circle, s);
+    else
+        return segment_polygon_intersection(s, polygon);
+}
+
+void Obstacle::offset(double r)
+{
+    if (t == CIRCLE)
+        circle = Circle_2(circle.center(), std::pow(radius + r, 2));
+    else
+        polygon = offsetPolygon(polygon, r);
+}
+
+// MAP METHODS:
 
 void Map::display()
 {
@@ -96,9 +273,8 @@ void Map::display()
 }
 
 void Map::draw_path() {
-    if (pathSet) {
+    if (pathSet)
         draw_polyline(path, "r");
-    }
 }
 
 void Map::draw_border() {
@@ -108,9 +284,7 @@ void Map::draw_border() {
 
 void Map::draw_obstacles() {
     for (auto o : obstacles)
-    {
         draw_poly(o.getPoly(10), "m", true);
-    }
     plt::set_aspect_equal();
 }
 
@@ -142,31 +316,11 @@ void Map::draw_shelfino() {
     plt::set_aspect_equal();
 }
 
-Exact_polygon_2 inexact2exact(Polygon_2 p)
-{
-    Exact_polygon_2 cp{};
-    for (auto &pt : p)
-    {
-        cp.push_back(exactifier(pt));
-    }
-    return cp;
-}
-
-Polygon_2 exact2inexact(Exact_polygon_2 cp)
-{
-    Polygon_2 p{};
-    for (auto &pt : cp)
-    {
-        p.push_back(inexactifier(pt));
-    }
-    return p;
-}
-
 void Map::setObstacles(std::vector<Obstacle> &obst)
 {
     for (auto &o : obst)
     {
-        // First check of obstacle collides with one previously added
+        // Add each unless it collides with one previously added
         bool overlaps = false;
         Polygon_2 p = o.getPoly(10);
         for (auto &o_ : obstacles)
@@ -182,94 +336,9 @@ void Map::setObstacles(std::vector<Obstacle> &obst)
     }
 }
 
-void draw_circle(const Point_2 &center, const double r, std::string color, bool fill, int resolution)
-{
-    Circle_2 c{center, std::pow(r, 2)};
-    Polygon_2 p = circle2poly(c, resolution);
-    draw_poly(p, color, fill);
-}
-
-void draw_poly(const Polygon_2 &p, std::string color, bool fill)
-{
-    size_t N = p.size();
-    std::vector<double> x(N + 1), y(N + 1);
-    if (p.size() == 0)
-    {
-        std::cerr << "Error: Polygon is empty." << std::endl;
-        return;
-    }
-    for (size_t i = 0; i < N + 1; i++)
-    {
-        x.at(i) = p[i % N].x();
-        y.at(i) = p[i % N].y();
-    }
-    if (fill)
-    {
-        plt::fill(x, y, {{"color", color}});
-    }
-    else
-    {
-        plt::plot(x, y, {{"color", color}});
-    }
-}
-
-Polygon_2 polygonROS2CGAL(geometry_msgs::msg::Polygon &msg)
-{
-    std::vector<Point_2> v;
-    for (auto rosPoint : msg.points)
-    {
-        v.emplace_back(rosPoint.x, rosPoint.y);
-    }
-    Polygon_2 p{v.begin(), v.end()};
-    if (p.is_clockwise_oriented())
-    {
-        p.reverse_orientation();
-    }
-    return p;
-}
-
-Obstacle::Obstacle(obstacles_msgs::msg::ObstacleMsg &o)
-{
-    if (o.radius == 0)
-    {
-        t = POLYGON;
-        polygon = polygonROS2CGAL(o.polygon);
-    }
-    else
-    {
-        t = CIRCLE;
-        auto center = o.polygon.points.at(0); // ASSUMPTION
-        circle = Circle_2(Point_2(center.x, center.y), std::pow(o.radius, 2));
-        radius = o.radius;
-    }
-}
-
-// circumscribed polygon approximation with n vertices
-Polygon_2 circle2poly(Circle_2 &c, int n)
-{
-    double r = std::sqrt(c.squared_radius());
-    double ang = 2 * M_PI / n;
-    double outer_r = r / std::cos(ang / 2);
-
-    std::vector<Point_2> v;
-    for (int i = 0; i < n; i++)
-    {
-        double x = c.center().x() + outer_r * std::cos(i * ang);
-        double y = c.center().y() + outer_r * std::sin(i * ang);
-        v.emplace_back(x, y);
-    }
-    return Polygon_2(v.begin(), v.end());
-}
-
 Bbox_2 Map::getBbox()
 {
     return border.bbox();
-}
-
-bool point_in_bbox(const Point_2 &p, const Bbox_2 &box)
-{
-    return (p.x() >= box.xmin() && p.x() <= box.xmax() &&
-            p.y() >= box.ymin() && p.y() <= box.ymax());
 }
 
 bool Map::isFree(const Point_2 &p) const
@@ -287,45 +356,6 @@ bool Map::isFree(const Point_2 &p) const
 bool Map::isWithinBorder(const Point_2 &p) const
 {
     return border.has_on_bounded_side(p);
-}
-
-bool segment_polygon_intersection(const Segment_2 &s, const Polygon_2 &p)
-{
-    auto it = p.edges_begin();
-    while (it != p.edges_end())
-    {
-        if (CGAL::do_intersect(*it, s))
-            return true;
-        it++;
-    }
-    return false;
-}
-
-bool polygon_polygon_intersection(const Polygon_2 &p1, const Polygon_2 &p2)
-{
-    return CGAL::do_intersect(inexact2exact(p1), inexact2exact(p2));
-}
-
-bool polygon_polygon_edge_intersection(const Polygon_2 &p1, const Polygon_2 &p2)
-{
-    for (auto eit = p1.edges_begin(); eit != p1.edges_end(); eit++)
-    {
-        if (segment_polygon_intersection(*eit, p2))
-            return true;
-    }
-    return false;
-}
-
-bool Obstacle::segmentCollides(const Segment_2 &s) const
-{
-    if (t == CIRCLE)
-    {
-        return CGAL::do_intersect(circle, s);
-    }
-    else
-    {
-        return segment_polygon_intersection(s, polygon);
-    }
 }
 
 bool Map::isFree(const Segment_2 &s) const
@@ -363,47 +393,17 @@ bool Map::isPOI(const Point_2 &p)
     return false;
 }
 
-void Obstacle::offset(double r)
-{
-    if (t == CIRCLE)
-    {
-        circle = Circle_2(circle.center(), std::pow(radius + r, 2));
-    }
-    else
-    {
-        polygon = offsetPolygon(polygon, r);
-    }
-}
-
-Polygon_2 offsetPolygon(Polygon_2 p, double r)
-{
-    if (r > 0)
-    {
-        auto polyVec = CGAL::create_exterior_skeleton_and_offset_polygons_2(r, p);
-        Polygon_2 off = *polyVec.at(1);
-        if (off.is_clockwise_oriented())
-            off.reverse_orientation();
-        return off;
-    }
-    else if (r < 0)
-    {
-        auto polyVec = CGAL::create_interior_skeleton_and_offset_polygons_2(-r, p);
-        Polygon_2 off = *polyVec.at(0);
-        if (off.is_clockwise_oriented())
-            off.reverse_orientation();
-        return off;
-    }
-    else
-        return p;
-}
-
+// Offset obstacles outward and border inward
+// Merges things that collide after offsetting
 void Map::offsetAllPolys()
 {
+    // Actual offsetting:
     for (size_t i = 0; i < obstacles.size(); i++)
         obstacles.at(i).offset(shelfino_r);
 
     border = offsetPolygon(border, -shelfino_r);
 
+    // Check for obstacle-obstacle overlaps
     for (size_t i = 1; i < obstacles.size(); i++)
     {
         Polygon_2 p1 = obstacles.at(i).getPoly(10);
@@ -413,6 +413,7 @@ void Map::offsetAllPolys()
             Exact_polygon_with_holes_2 res;
             if (CGAL::join(inexact2exact(p1), inexact2exact(p2), res))
             {
+                // Join the obstacles and delete the old ones
                 printf("[INFO]: Joined overlapping obstacles after offset\n");
                 Polygon_2 joined = exact2inexact(res.outer_boundary());
                 obstacles.at(i) = Obstacle{joined};
@@ -422,12 +423,15 @@ void Map::offsetAllPolys()
             }
         }
     }
+
+    // Check for obstacle-border intersections
     for (size_t i = 0; i < obstacles.size(); i++)
     {
         Polygon_2 p = obstacles.at(i).getPoly(10);
         std::list<Exact_polygon_with_holes_2> res;
         if (polygon_polygon_edge_intersection(p, border))
         {
+            // Make the obstacle perimeter part of the border and delete obstacle
             printf("[INFO]: Obstacle border collision detected\n");
             CGAL::difference(inexact2exact(border), inexact2exact(p), std::back_inserter(res));
             assert(res.size() == 1);
@@ -437,9 +441,10 @@ void Map::offsetAllPolys()
         }
     }
 
-    // If gate falls outside of newly offset border
+    // If gate falls outside of newly offset border, 
     if (border.has_on_unbounded_side(gate.source()))
     {
+        // Find closest projection of gate onto border
         double record = INFINITY;
         Point_2 closest;
         for (size_t i = 0; i < border.size(); i++)
@@ -459,45 +464,15 @@ void Map::offsetAllPolys()
                 }
             }
         }
+        // Move the gate projection just within the border
         auto offset = gate.opposite().to_vector();
         offset = 0.001 * offset / std::sqrt(offset.squared_length());
         gateProjection = closest + offset;
     }
 }
 
-int getVertexIndexOffset(Polygon_2 &p1, Polygon_2 &p2)
-{
-    // std::map<int, int> votes;
-    // std::array<int, 4> dists;
-    // int N = p1.size();
-    // dists.at(0) = distance(p1.begin(), p1.top_vertex()) - distance(p2.begin(), p2.top_vertex());
-    // dists.at(1) = distance(p1.begin(), p1.right_vertex()) - distance(p2.begin(), p2.right_vertex());
-    // dists.at(2) = distance(p1.begin(), p1.left_vertex()) - distance(p2.begin(), p1.left_vertex());
-    // dists.at(3) = distance(p1.begin(), p1.bottom_vertex()) - distance(p2.begin(), p2.bottom_vertex());
-    // for (int d: dists) {
-    //     int d_mod = (d%N+N)%N;
-    //     if (votes.count(d_mod))
-    //         votes[d_mod]++;
-    //     else
-    //         votes[d_mod] = 1;
-    // }
-    // int record = 0;
-    // int res = 0;
-    // for (auto it = votes.begin(); it != votes.end(); it++) {
-    //     if (it->second > record) {
-    //         record = it->second;
-    //         res = it->first;
-    //     }
-    // }
-    // return dists.at(0);
-    return distance(p1.begin(), p1.right_vertex()) - distance(p2.begin(), p2.right_vertex());
-}
-
-int mod(int a, int b)
-{
-    return (a % b + b) % b;
-}
-
+// Find RVs from obstacles and border. Also outputs an offset representation of each RV, as well as the
+// angles of each RV's adjacent edges
 std::vector<Point_2> Map::getReflexVertices(std::vector<Point_2> &offsetRVs, std::vector<double> &inboundAngs, std::vector<double> &outboundAngs)
 {
     std::vector<Point_2> rv;
@@ -506,11 +481,13 @@ std::vector<Point_2> Map::getReflexVertices(std::vector<Point_2> &offsetRVs, std
     outboundAngs = std::vector<double>{};
     size_t n = border.size();
     Polygon_2 offsetBorder = offsetPolygon(border, -0.001);
+    // Indices of offset version may not be in same order
     int borderIdxOffset = getVertexIndexOffset(border, offsetBorder);
     for (size_t i = 0; i < n; i++)
     {
         auto p = border.edge(i).to_vector();
         auto q = border.edge(mod(i + 1, n)).to_vector();
+        // https://stackoverflow.com/questions/40410743/polygon-triangulation-reflex-vertex
         if (p.x() * q.y() - p.y() * q.x() < 0)
         {
             double inAng = dir2ang(q.direction());
@@ -525,6 +502,7 @@ std::vector<Point_2> Map::getReflexVertices(std::vector<Point_2> &offsetRVs, std
     {
         Polygon_2 poly = o.getPoly(10);
         Polygon_2 offsetPoly = offsetPolygon(poly, 0.001);
+        // Indices of offset version may not be in same order
         int idxOffset = getVertexIndexOffset(poly, offsetPoly);
         size_t n = poly.size();
         for (size_t i = 0; i < n; i++)
@@ -545,8 +523,10 @@ std::vector<Point_2> Map::getReflexVertices(std::vector<Point_2> &offsetRVs, std
     return rv;
 }
 
+// Find all points visible from queryPoint in map
 std::vector<Point_2> Map::visibilityQuery(Point_2 queryPoint)
 {
+    // If first time; find main open face in map
     if (!visibilityCacheComputed)
     {
         CGAL::insert_non_intersecting_curves(visibilityCache, border.edges_begin(), border.edges_end());
@@ -574,13 +554,13 @@ std::vector<Point_2> Map::visibilityQuery(Point_2 queryPoint)
 
         visibilityCacheComputed = true;
     }
+
+    // Make actual visibility query
     std::vector<Point_2> vec{};
     Visibility_2 visibility(visibilityCache);
     Arrangement_2 vis_output;
     visibility.compute_visibility(queryPoint, main_face, vis_output);
     for (Edge_const_iterator eit = vis_output.edges_begin(); eit != vis_output.edges_end(); ++eit)
-    {
         vec.push_back(eit->target()->point());
-    }
     return vec;
 }

@@ -178,7 +178,7 @@ void RoadmapGenerator::TPResult_callback(interfaces::msg::Result::SharedPtr msg)
     }
 
     auto [_s, _ms] = read_timer();
-    RCLCPP_INFO(this->get_logger(), "Found path after %lds %ldms", _s, _ms - 1000 * _s);
+    RCLCPP_INFO(this->get_logger(), "Found path after %lds %ldms", _s, _ms);
 
     pathPublisher->publish(pathMsg);
     planning_done = true;

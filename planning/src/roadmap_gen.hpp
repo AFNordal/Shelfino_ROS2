@@ -107,7 +107,7 @@ private:
     void start_timer() { assert(!timer_running); t0 = high_resolution_clock::now(); timer_running = true; }
     void pause_timer() { assert(timer_running); t_paused = high_resolution_clock::now(); timer_running = false; }
     void resume_timer() { assert(!timer_running); total_pause += high_resolution_clock::now() - t_paused; timer_running = true; }
-    std::pair<seconds, milliseconds> read_timer() {
+    std::pair<long int, long int> read_timer() {
         auto _t = high_resolution_clock::now() - t0 - total_pause;
         auto _s = duration_cast<seconds>(_t).count();
         auto _ms = duration_cast<milliseconds>(_t).count() - 1000 * _s;

@@ -1,19 +1,18 @@
 #pragma once
 #include <vector>
 #include <memory>
-#include <CGAL/Simple_cartesian.h>
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
-#include <CGAL/Triangulation_2.h>
-#include <CGAL/Point_set_2.h>
-#include <CGAL/Triangulation_vertex_base_with_info_2.h>
-#include <CGAL/Triangulation_data_structure_2.h>
+#include "CGAL/Simple_cartesian.h"
+#include "CGAL/Exact_predicates_inexact_constructions_kernel.h"
+#include "CGAL/Triangulation_2.h"
+#include "CGAL/Point_set_2.h"
+#include "CGAL/Triangulation_vertex_base_with_info_2.h"
+#include "CGAL/Triangulation_data_structure_2.h"
 
-
-// typedef CGAL::Simple_cartesian<double> K;
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef K::Point_2 Point_2;
 typedef K::Segment_2 Segment_2;
 
+// Generalized edge for Graph class
 class Edge
 {
 private:
@@ -25,6 +24,7 @@ public:
     virtual Segment_2 getSegment() {return Segment_2{};}
 };
 
+// Edge represented by a line segment
 class SegmentEdge : public Edge
 {
 private:
@@ -35,6 +35,7 @@ public:
     Segment_2 getSegment() { return seg; }
 };
 
+// Generalized vertex for Graph class
 class Vertex : public Point_2
 {
 private:
@@ -71,11 +72,13 @@ public:
     Point_2 getAlias() { return alias; }
 };
 
+// KNN stuff
 typedef CGAL::Triangulation_vertex_base_with_info_2<std::shared_ptr<Vertex>, K> Vb;
 typedef CGAL::Triangulation_data_structure_2<Vb> Tds;
 typedef CGAL::Point_set_2<K, Tds> Pset;
 typedef Pset::Vertex_handle Vertex_handle;
 
+// Generalized graph class with knn and dijkstra methods
 class Graph
 {
 private:

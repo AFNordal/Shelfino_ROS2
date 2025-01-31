@@ -2,23 +2,25 @@
 
 RobotMover::RobotMover() : Node("robot_mover")
 {
+    // Initialize subscription and action client
     rclcpp::QoS TL_qos(rclcpp::KeepLast(1));
     TL_qos.durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
     pathSubscription = this->create_subscription<geometry_msgs::msg::PoseArray>(
         "/planned_path", TL_qos, std::bind(&RobotMover::path_callback, this, _1));
-
     this->client_ptr_ = rclcpp_action::create_client<FP>(
         this,
         "/shelfino/follow_path");
     RCLCPP_INFO(this->get_logger(), "robot_mover node started.");
 }
 
+// On received path; Create goal message and send to action server
 void RobotMover::path_callback(const geometry_msgs::msg::PoseArray::SharedPtr msg)
 {
     if (path_received)
         return;
     path_received = true;
     RCLCPP_INFO(this->get_logger(), "Received path");
+    
     auto goal_msg = FP::Goal();
     goal_msg.controller_id = "FollowPath";
     goal_msg.goal_checker_id = "goal_checker";

@@ -20,7 +20,7 @@
 #include "geometry_msgs/msg/quaternion.hpp"
 #include "geometry_msgs/msg/pose.hpp"
 
-// typedef CGAL::Simple_cartesian<double> K;
+// CGAL primitives
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef CGAL::Exact_predicates_exact_constructions_kernel ExactK;
 typedef K::Point_2 Point_2;
@@ -35,12 +35,14 @@ typedef CGAL::Polygon_with_holes_2<ExactK> Exact_polygon_with_holes_2;
 typedef CGAL::Polygon_2<ExactK> Exact_polygon_2;
 typedef CGAL::Bbox_2 Bbox_2;
 
+// Visibility stuff
 typedef CGAL::Arr_segment_traits_2<K> Traits_2;
 typedef CGAL::Arrangement_2<Traits_2> Arrangement_2;
 typedef Arrangement_2::Face_const_handle Face_const_handle;
 typedef CGAL::Rotational_sweep_visibility_2<Arrangement_2, CGAL::Tag_false> Visibility_2;
 typedef Arrangement_2::Edge_const_iterator Edge_const_iterator;
 
+// Kernel conversion
 inline CGAL::Cartesian_converter<K, ExactK> exactifier;
 inline CGAL::Cartesian_converter<ExactK, K> inexactifier;
 
@@ -59,29 +61,29 @@ constexpr std::array<const char *, 10> matplotlib_color_range = {
     "#17becf"  // Cyan
 };
 
-Polygon_2 polygonROS2CGAL(geometry_msgs::msg::Polygon &msg);
-Direction_2 orientation2dir(geometry_msgs::msg::Quaternion &orientation);
-double dir2ang(Direction_2 dir);
-Polygon_2 circle2poly(Circle_2 &c, int n);
+void plt_show(double pause_t = 10000);
+void plt_draw();
+void plt_clear();
 void draw_circle(const Point_2 &center, const double r, std::string color, bool fill = false, int resolution = 90);
 void draw_poly(const Polygon_2 &p, std::string color, bool fill = false);
-bool point_in_bbox(const Point_2 &p, const Bbox_2 &box);
-bool segment_polygon_intersection(const Segment_2 &s, const Polygon_2 &p);
-bool polygon_polygon_intersection(const Polygon_2 &p1, const Polygon_2 &p2);
-bool polygon_polygon_edge_intersection(const Polygon_2 &p1, const Polygon_2 &p2);
 void draw_segment(const Segment_2 &s, std::string color, double linewidth = 1);
 void draw_polyline(const std::vector<Point_2> &points, std::string color, double linewidth = 1);
 void draw_points(const std::vector<Point_2> &points, std::string color, double s = 1);
 void draw_arrows(const std::vector<Point_2> &points, const std::vector<double> &angles, std::string color);
-Polygon_2 offsetPolygon(Polygon_2 p, double r);
 
+Polygon_2 polygonROS2CGAL(geometry_msgs::msg::Polygon &msg);
+Direction_2 orientation2dir(geometry_msgs::msg::Quaternion &orientation);
+double dir2ang(Direction_2 dir);
+Polygon_2 circle2poly(Circle_2 &c, int n);
 Exact_polygon_2 inexact2exact(Polygon_2 p);
 Exact_segment_2 inexact2exact(Segment_2 p);
 Polygon_2 exact2inexact(Exact_polygon_2 p);
 
-void plt_show(double pause_t=10000);
-void plt_draw();
-void plt_clear();
+Polygon_2 offsetPolygon(Polygon_2 p, double r);
+
+bool segment_polygon_intersection(const Segment_2 &s, const Polygon_2 &p);
+bool polygon_polygon_intersection(const Polygon_2 &p1, const Polygon_2 &p2);
+bool polygon_polygon_edge_intersection(const Polygon_2 &p1, const Polygon_2 &p2);
 
 typedef enum
 {
@@ -100,8 +102,17 @@ private:
 public:
     Obstacle() {}
     Obstacle(obstacles_msgs::msg::ObstacleMsg &o);
-    Obstacle(Polygon_2 &p) { polygon = p; t = POLYGON; }
-    Obstacle(Circle_2 &c) { circle = c; radius = std::sqrt(c.squared_radius()); t = CIRCLE; }
+    Obstacle(Polygon_2 &p)
+    {
+        polygon = p;
+        t = POLYGON;
+    }
+    Obstacle(Circle_2 &c)
+    {
+        circle = c;
+        radius = std::sqrt(c.squared_radius());
+        t = CIRCLE;
+    }
     Polygon_2 getPoly(const int c_res) { return (t == CIRCLE) ? circle2poly(circle, c_res) : polygon; }
     bool contains(const Point_2 &p);
     bool segmentCollides(const Segment_2 &s) const;
@@ -156,18 +167,23 @@ private:
 
 public:
     Map() {};
-    void setBorder(geometry_msgs::msg::Polygon &p)
-    {
-        border = polygonROS2CGAL(p);
-    }
+    void setBorder(geometry_msgs::msg::Polygon &p) { border = polygonROS2CGAL(p); }
     void setObstacles(std::vector<Obstacle> &o);
     std::vector<Obstacle> getObstacles() { return obstacles; }
     void offsetAllPolys();
     void setVictims(std::vector<Weighted_point_2> &v) { victims = v; };
     void setShelfinoPose(Ray_2 &pose) { shelfino = pose; };
-    void setGatePose(Ray_2 &pose) { gate = pose; gateProjection = pose.source(); };
+    void setGatePose(Ray_2 &pose)
+    {
+        gate = pose;
+        gateProjection = pose.source();
+    };
     void setShelfinoRadius(double r) { shelfino_r = r; }
-    void setPath(std::vector<Point_2> &p) { path = p; pathSet = true; }
+    void setPath(std::vector<Point_2> &p)
+    {
+        path = p;
+        pathSet = true;
+    }
     void display();
     void draw_border();
     void draw_obstacles();
