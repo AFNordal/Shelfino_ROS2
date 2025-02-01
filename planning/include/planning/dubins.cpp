@@ -33,7 +33,7 @@ void SPDubinsPath::setFromParams(DubinsParams p)
                           lengths[2], signs[2], k);
 }
 
-// DP approach to find optimal dubins path between two points. Considers collisions in optimality.
+// Find optimal dubins path between two points. Considers collisions in optimality.
 std::pair<double, SPDubinsPath> optimalDubinsParams(Point_2 p0, Point_2 p1, double th0, double th1, double k, const Map &map, const double obstr_cost)
 {
     double record_l = INFINITY;
